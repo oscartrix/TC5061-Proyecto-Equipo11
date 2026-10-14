@@ -95,11 +95,32 @@ git push -u origin feature/nombre-de-tu-tarea
 ```
 
 ### 5. Abrir el Pull Request (PR)
+
+Puedes abrir el PR mediante la consola con GitHub CLI (`gh`) o directamente en la interfaz web:
+
+#### Opción A: Desde la consola (con GitHub CLI `gh`)
+*(Requiere tener instalado [GitHub CLI](https://cli.github.com/) e iniciar sesión con `gh auth login`)*
+
+- **Crear PR sobre la rama actual:**
+  ```bash
+  gh pr create --title "feat: descripción breve" --body "Descripción detallada del cambio"
+  ```
+- **Crear PR especificando la rama:**
+  ```bash
+  gh pr create --head feature/nombre-de-tu-tarea --title "feat: descripción breve" --body "Descripción del cambio"
+  ```
+- **Crear PR de forma interactiva** (te guiará paso a paso en la terminal):
+  ```bash
+  gh pr create
+  ```
+
+#### Opción B: Desde la interfaz web de GitHub
 1. Ve al repositorio en GitHub: [TC5061-Proyecto-Equipo11](https://github.com/oscartrix/TC5061-Proyecto-Equipo11).
-2. Verás un botón amarillo que dice **"Compare & pull request"**; haz clic en él (o ve a la pestaña **Pull requests** -> **New pull request**).
+2. Verás un banner con el botón **"Compare & pull request"**; haz clic en él (o ve a la pestaña **Pull requests** -> **New pull request**).
 3. Asegúrate de que la rama base sea `main` y la rama de comparación sea tu rama.
-4. Agrega una descripción clara de lo que se realizó.
+4. Agrega un título y una descripción clara de lo realizado.
 5. Asigna al menos a un compañero de equipo como revisor (**Reviewers**).
+
 
 ### 6. Revisión y Merge
 - Un compañero debe revisar los cambios y seleccionar **"Approve"**.

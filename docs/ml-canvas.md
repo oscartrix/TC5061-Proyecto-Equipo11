@@ -8,10 +8,21 @@
 
 ## Value Proposition
 ### Qué
+Anticipar la demanda y el riesgo de que las estaciones se vacíen o se llenen así como identificar patrones de uso del sistema.
 
 ### Porqué
+- **P1:** una flotilla de bicicletas mal distribuida tiene bicicletas sin usar y viajes que no pueden realizar los usuarios. Predecir cuántos viajes saldrán de cada estación permite asignar una flotilla óptima por estación o zona para prevenir estos problemas.
+- **P2:** una estación vacía o llena es una falla hacia el usuario ya que no puede usar una bicicleta o no puede anclarla. Anticiparlo permite usar mejor el equipo de rebalanceo, suponiendo que le quipo de rebalanceo es limitado.
+- **P3:** hacer una planeación basada en datos y evidencia para expandir el sistema MiBici. No tomar decisiones basados en intuiciones.
 
 ### Quién
+| Pregunta | Usuario |
+|---|---|
+| P1 | Operador del sistema, para planear la flota |
+| P2 | Equipo de rebalanceo de bicicletas |
+| P3 | Planeación urbana y expansión del sistema |
+
+Además, el usuario de MiBici se verá beneficiado con las acciones que se tomen en base a los resultados de los modelos.
 
 ## Predict
 

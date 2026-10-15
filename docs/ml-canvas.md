@@ -67,6 +67,9 @@ Además, el usuario de MiBici se verá beneficiado con las acciones que se tomen
 ## Learn
 
 ### Data sources
+- Viajes mensuales en formato CSV del [portal de datos abiertos de MiBici](https://mibici.net/es/datos-abiertos/), rango 2024-01 a 2026-09.
+- [Nomenclatura de estaciones](https://mibici.net/site/assets/files/1118/nomenclatura_2026_09.csv): id, nombre, latitud, longitud y capacidad.
+- Calendario de días festivos de México.
 
 ### Collecting data
 

@@ -72,6 +72,9 @@ Además, el usuario de MiBici se verá beneficiado con las acciones que se tomen
 - Calendario de días festivos de México.
 
 ### Collecting data
+- MiBici publica un CSV por mes. La ingesta descarga el mes nuevo, lo estandariza y lo versiona con DVC.
+- Las etiquetas para P1 y P2 se pueden obtener de los datos, no se requiere etiquetado manual.
+- No hay datos para calcular y predecir los viajes perdidos cuando una estación esta vacía o el impacto al usuario cuando una estación esta llena
 
 ### Features
 

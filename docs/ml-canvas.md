@@ -77,6 +77,9 @@ Además, el usuario de MiBici se verá beneficiado con las acciones que se tomen
 - No hay datos para calcular y predecir los viajes perdidos cuando una estación esta vacía o el impacto al usuario cuando una estación esta llena
 
 ### Features
+- **P1:** día de la semana, mes, festivos, lags de 7, 14 y 21 días, capacidad, zona.
+- **P2:** hora, día de la semana, salidas y llegadas de la última hora, flujo neto de la misma hora hace 1 y 7 días, capacidad.
+- **P3:** perfil horario normalizado de salidas y llegadas (entre semana y fin de semana), razón salidas/llegadas, volumen diario, duración media, % de viajes redondos.
 
 ### Building models
 - **P1 y P2:** reentrenamiento mensual cuando se publica el CSV nuevo.

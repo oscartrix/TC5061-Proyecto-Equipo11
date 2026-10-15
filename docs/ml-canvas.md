@@ -79,6 +79,9 @@ Además, el usuario de MiBici se verá beneficiado con las acciones que se tomen
 ### Features
 
 ### Building models
+- **P1 y P2:** reentrenamiento mensual cuando se publica el CSV nuevo.
+- **P3:** recálculo trimestral o cuando se abren/cierran estaciones nuevas.
+- Cada entrenamiento se registra en MLflow con rango de fechas, versión de datos y commit de Git.
 
 ## Evaluate
 

@@ -52,6 +52,17 @@ Además, el usuario de MiBici se verá beneficiado con las acciones que se tomen
 | P3 | Mensual o trimestral | No aplica | Días |
 
 ### Offline evaluation
+| Conjunto | Periodo |
+|---|---|
+| Train | Desde Ene 2024 a Dic 2025 |
+| Validación | Desde Ene 2026 a Jun 2026 |
+| Test | Desde Jul 2026 a Sep 2026 |
+
+| | Baseline | Métricas |
+|---|---|---|
+| P1 | Seasonal naive (mismo día de la semana anterior) | MAE, RMSE, WAPE |
+| P2 | Regla: misma clase que a esta hora hace 7 días | PR-AUC, recall, precision@k |
+| P3 | K-Means geográfico (latitud y longitud, mismo k que el modelo) | Silueta, Davies-Bouldin, estabilidad (ARI) |
 
 ## Learn
 

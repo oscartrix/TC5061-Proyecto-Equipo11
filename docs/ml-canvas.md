@@ -86,5 +86,10 @@ Además, el usuario de MiBici se verá beneficiado con las acciones que se tomen
 ## Evaluate
 
 ### Live evaluation and monitoring
+| | Métrica en producción |
+|---|---|
+| P1 | WAPE mensual contra viajes reales |
+| P2 | Precision@k por día |
+| P3 | Cambio en la asignación de grupos entre recálculos (ARI) |
 
-## Formulación por pregunta
+**Drift a monitorear:** volumen por estación, cambios de esquema en los CSV, estaciones nuevas o retiradas.

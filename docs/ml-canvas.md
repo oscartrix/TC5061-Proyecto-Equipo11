@@ -32,6 +32,9 @@ Además, el usuario de MiBici se verá beneficiado con las acciones que se tomen
 ## Predict
 
 ### Decisions
+- **P1:** asignar la cantidad óptima de bicicletas por estación para cada rebastecimiento. 
+- **P2:** ordenar la ruta de rebalanceo. Llevar bicicletas a las estaciones con `deficit` y retirarlas de las estaciones con `excedente`, atendiendo primero las de mayor probabilidad.
+- **P3:** elegir zonas para expandir el sistema o densificar estaciones.
 
 ### ML task
 | | Tipo | Entrada | Salida |

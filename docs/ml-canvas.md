@@ -3,6 +3,7 @@
 ---
 ## PENDIENTES
 - Definir número de horas para predicción de déficit y excedente.
+- Definir número de días para predecir reabastecimiento.
 ---
 
 | # | Pregunta de negocio | Tipo de tarea | Quién la usaría |
@@ -44,6 +45,11 @@ Además, el usuario de MiBici se verá beneficiado con las acciones que se tomen
 | P3 | Clustering | Perfil de uso por estación | Grupo asignado a cada estación |
 
 ### Making predictions
+| | Cuándo | Horizonte | Tiempo disponible |
+|---|---|---|---|
+| P1 | Cada 24 horas | [PENDIENTE] días | Horas |
+| P2 | Cada hora | [PENDIENTE] horas | Minutos |
+| P3 | Mensual o trimestral | No aplica | Días |
 
 ### Offline evaluation
 

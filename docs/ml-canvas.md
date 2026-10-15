@@ -1,5 +1,10 @@
 # ML Canvas: MiBici
 
+---
+## PENDIENTES
+- Definir número de horas para predicción de déficit y excedente.
+---
+
 | # | Pregunta de negocio | Tipo de tarea | Quién la usaría |
 |---|---|---|---|
 | P1 | ¿Cuántos viajes se iniciarán en una estación o zona en un periodo futuro? | Regresión | Operador del sistema, para planear la flota. |
@@ -29,6 +34,11 @@ Además, el usuario de MiBici se verá beneficiado con las acciones que se tomen
 ### Decisions
 
 ### ML task
+| | Tipo | Entrada | Salida |
+|---|---|---|---|
+| P1 | Regresión | Estación, fecha, historial de viajes | Viajes iniciados por día. Entero ≥ 0. |
+| P2 | Clasificación multiclase | Estación, hora, flujo reciente, capacidad | {`deficit`, `excedente`, `balanceado`} en las próximas [PENDIENTE] horas. |
+| P3 | Clustering | Perfil de uso por estación | Grupo asignado a cada estación |
 
 ### Making predictions
 

@@ -1,3 +1,23 @@
+from mi_bici.data.readers import (
+    CANDIDATE_ENCODINGS,
+    compare_headers,
+    detect_encoding,
+    parse_datetime,
+    read_header,
+    read_raw_csv,
+    read_trips,
+    validate_header,
+)
+from mi_bici.data.schemas import (
+    TRIP_COLUMNS,
+    TRIP_DATETIME_COLUMNS,
+    TRIP_DATETIME_FORMATS,
+    TRIP_DTYPES,
+    TRIP_HEADER_VARIANTS,
+    TRIP_PERSONAL_COLUMNS,
+    TRIP_RENAME,
+    TRIP_SOURCE_COLUMNS,
+)
 from mi_bici.data.sources import (
     HTTP_HEADERS,
     SOURCES_PATH,
@@ -6,14 +26,32 @@ from mi_bici.data.sources import (
     download_trips,
     load_sources,
     select_trip_urls,
+    validate_year_month,
 )
 
 __all__ = [
+    'CANDIDATE_ENCODINGS',
     'HTTP_HEADERS',
     'SOURCES_PATH',
+    'TRIP_COLUMNS',
+    'TRIP_DATETIME_COLUMNS',
+    'TRIP_DATETIME_FORMATS',
+    'TRIP_DTYPES',
+    'TRIP_HEADER_VARIANTS',
+    'TRIP_PERSONAL_COLUMNS',
+    'TRIP_RENAME',
+    'TRIP_SOURCE_COLUMNS',
+    'compare_headers',
+    'detect_encoding',
     'download_file',
     'download_stations',
     'download_trips',
     'load_sources',
+    'parse_datetime',
+    'read_header',
+    'read_raw_csv',
+    'read_trips',
     'select_trip_urls',
+    'validate_header',
+    'validate_year_month',
 ]

@@ -1,6 +1,7 @@
 """Descarga de datos de MiBici"""
 
 from pathlib import Path
+import re
 
 import requests
 import yaml
@@ -8,6 +9,9 @@ import yaml
 from mi_bici.config import PROJ_ROOT, RAW_DATA_DIR
 
 SOURCES_PATH = PROJ_ROOT / 'config' / 'sources.yaml'
+
+# Formato AAAA-MM con mes de 01 a 12
+YEAR_MONTH_PATTERN = re.compile(r'^\d{4}-(0[1-9]|1[0-2])$')
 
 # El servidor de MiBici responde 406 al User-Agent por defecto de requests.
 HTTP_HEADERS = {
@@ -22,8 +26,17 @@ def load_sources(path: Path = SOURCES_PATH) -> dict:
         return yaml.safe_load(f)
 
 
+def validate_year_month(value: str) -> str:
+    """Validar formato (AAAA-MM) de fecha"""
+    if not YEAR_MONTH_PATTERN.match(value):
+        raise ValueError(f'{value!r} no tiene formato AAAA-MM')
+    return value
+
+
 def select_trip_urls(sources: dict, start: str, end: str) -> dict[str, str]:
     """Regresa el url de los viajes dentro del rango"""
+    validate_year_month(start)
+    validate_year_month(end)
     return {
         year_month: url
         for year_month, url in sorted(sources['trips'].items())

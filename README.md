@@ -6,6 +6,44 @@
 
 MLOps de MiBici proyecto de equipo
 
+## Requisitos
+
+- Python 3.10
+- [uv](https://docs.astral.sh/uv/) para crear el entorno y generar los archivos de dependencias
+
+## Instalación del entorno
+
+```bash
+uv venv --seed .venv
+source .venv/bin/activate
+uv pip sync requirements-dev.txt
+pip install -e . --no-deps
+nbstripout --install --attributes .gitattributes
+```
+
+- `requirements-dev.txt` instala todo lo necesario para trabajar (incluye Jupyter, pytest y ruff).
+- `requirements.txt` contiene solo lo que necesita el pipeline para ejecutarse.
+
+## Ingesta de datos
+
+Descarga los viajes del rango indicado y el catálogo de estaciones a `data/raw`:
+
+```bash
+python -m mi_bici.dataset --start 2024-01 --end 2026-09
+```
+
+- Las URL de los archivos con los datos de MiBici a descargar están en `config/sources.yaml`.
+- Los archivos que ya existen no se vuelven a descargar. Se puede usar `--overwrite` para forzar la descarga.
+
+## Dependencias
+
+Las dependencias se declaran en `pyproject.toml`. `dependencies` para el pipeline y `dev` para el desarrollo.
+
+```bash
+uv pip compile pyproject.toml --no-annotate --no-header -o requirements.txt
+uv pip compile pyproject.toml --extra dev --no-annotate --no-header -o requirements-dev.txt
+```
+
 ## Project Organization
 
 ```
@@ -37,6 +75,8 @@ MLOps de MiBici proyecto de equipo
 ├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
 │                         generated with `pip freeze > requirements.txt`
 │
+├── requirements-dev.txt   <- The requirements for the development environment
+│
 ├── setup.cfg          <- Configuration file for flake8
 │
 └── mi_bici   <- Source code for use in this project.
@@ -46,6 +86,10 @@ MLOps de MiBici proyecto de equipo
     ├── config.py               <- Store useful variables and configuration
     │
     ├── dataset.py              <- Scripts to download or generate data
+    │
+    ├── data
+    │   ├── __init__.py
+    │   └── sources.py          <- Fuentes de datos y descarga de archivos
     │
     ├── features.py             <- Code to create features for modeling
     │

@@ -9,14 +9,30 @@ description = "MLOps de MiBici proyecto de equipo"
 authors = [
   { name = "TC5061-Equipo11" },
 ]
-
 readme = "README.md"
 classifiers = [
     "Programming Language :: Python :: 3",
-    
 ]
 requires-python = "~=3.10.0"
+dependencies = [
+    "pandas>=2.2",
+    "pyyaml>=6.0",
+    "requests>=2.32",
+    "python-dotenv",
+    "loguru",
+    "tqdm",
+    "typer",
+]
 
+[project.optional-dependencies]
+dev = [
+    "jupyterlab",
+    "ipykernel",
+    "nbstripout",
+    "pytest",
+    "ruff",
+    "mkdocs",
+]
 
 [tool.ruff]
 line-length = 99
@@ -30,3 +46,5 @@ extend-select = ["I"]  # Add import sorting
 known-first-party = ["mi_bici"]
 force-sort-within-sections = true
 
+[tool.ruff.format]
+quote-style = "single"

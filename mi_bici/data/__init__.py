@@ -7,6 +7,7 @@ from mi_bici.data.readers import (
     read_raw_csv,
     read_trips,
     validate_header,
+    read_stations,
 )
 from mi_bici.data.schemas import (
     TRIP_COLUMNS,
@@ -17,6 +18,11 @@ from mi_bici.data.schemas import (
     TRIP_PERSONAL_COLUMNS,
     TRIP_RENAME,
     TRIP_SOURCE_COLUMNS,
+    STATION_COLUMNS,
+    STATION_DTYPES,
+    STATION_HEADER_VARIANTS,
+    STATION_RENAME,
+    STATION_SOURCE_COLUMNS,
 )
 from mi_bici.data.sources import (
     HTTP_HEADERS,
@@ -54,4 +60,10 @@ __all__ = [
     'select_trip_urls',
     'validate_header',
     'validate_year_month',
+    'read_stations',
+    'STATION_COLUMNS',
+    'STATION_DTYPES',
+    'STATION_HEADER_VARIANTS',
+    'STATION_RENAME',
+    'STATION_SOURCE_COLUMNS',
 ]

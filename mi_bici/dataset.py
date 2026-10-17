@@ -20,6 +20,7 @@ from mi_bici.data import (
     compare_headers,
     validate_header,
     validate_year_month,
+    read_stations,
 )
 
 app = typer.Typer()
@@ -58,6 +59,12 @@ def main(
         raise typer.BadParameter(f'No hay archivos disponibles entre {start} y {end}')
 
     stations_path = download_stations(sources, overwrite=overwrite)
+    try:
+        stations = read_stations(stations_path)
+    except ValueError as error:
+        raise ValueError(
+            f'Catálogo de estaciones inválido ({stations_path.name}): {error}'
+        ) from error
     logger.info(f'Catálogo de estaciones: {stations_path}')
 
     trip_paths = download_trips(trip_urls, overwrite=overwrite)

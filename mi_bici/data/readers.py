@@ -12,6 +12,10 @@ from mi_bici.data.schemas import (
     TRIP_HEADER_VARIANTS,
     TRIP_PERSONAL_COLUMNS,
     TRIP_SOURCE_COLUMNS,
+    STATION_COLUMNS,
+    STATION_DTYPES,
+    STATION_HEADER_VARIANTS,
+    STATION_SOURCE_COLUMNS,
 )
 
 
@@ -95,7 +99,7 @@ def parse_datetime(
             continue
 
     examples = values.dropna().drop_duplicates().head(3).tolist()
-    
+
     raise ValueError(
         f'La fecha no coincide con ningún formato válido. Formatos: {formats}. Ejemplos: {examples}'
     )
@@ -124,3 +128,15 @@ def read_trips(path: Path) -> pd.DataFrame:
     
     df.attrs['datetime_formats'] = datetime_formats
     return df
+
+
+def read_stations(path: Path) -> pd.DataFrame:
+    encoding, columns = read_header(path)
+    validate_header(columns, STATION_SOURCE_COLUMNS, STATION_HEADER_VARIANTS)
+    return pd.read_csv(
+        path,
+        encoding=encoding,
+        header=0,
+        names=list(STATION_COLUMNS),
+        dtype=STATION_DTYPES,
+    )

@@ -174,9 +174,9 @@ Para mantener la estabilidad del proyecto, la rama `main` está protegida. Todos
 
 ## 8. Integrantes del Equipo 11 y Roles
 
-| Integrante | Usuario GitHub | Rol Principal en esta Entrega |
-|---|---|---|
-| **Oscar** | `@oscartrix` | Arquitectura MLOps, experimentación en notebooks de pruebas, módulo `features.py`, tracking en MLflow (`train.py`) y guía de flujo Git. |
-| **Jesús (Chuy)** | `@chuycc` | Diseño e implementación de ingesta reproducible (`sources.py`, `readers.py`, `schemas.py`, `dataset.py`), notebook de ingesta y formulación inicial de ML Canvas. |
-| **Jimena** | `@JimenaMaSuMu` | Configuración de seguridad y exclusión de artefactos (`.gitignore`), revisión de contratos de datos y validación de PRs. |
-| **Luis Antonio Cárdenas** | `@luis-antonio-cardenas` | Diseño de arquitectura del sistema, generación de diagramas estáticos (Mermaid/PNG) e interactivos (`architecture.html`) y revisión técnica de PRs. |
+| Integrante | Matrícula | Usuario GitHub | Rol Principal en esta Entrega |
+|---|---|---|---|
+| **Jimena María Suárez Muñoz** | `A01652504` | `@JimenaMaSuMu` | Configuración de seguridad y exclusión de artefactos (`.gitignore`), revisión de contratos de datos y validación de PRs. |
+| **Jesús Carrillo Cantú** | `A01840421` | `@chuycc` | Diseño e implementación de ingesta reproducible (`sources.py`, `readers.py`, `schemas.py`, `dataset.py`), notebook de ingesta y formulación inicial de ML Canvas. |
+| **Oscar Alfonso Valenzuela Muñoz** | `A01840486` | `@oscartrix` | Arquitectura MLOps, experimentación en notebooks de pruebas, módulo `features.py`, tracking en MLflow (`train.py`) y guía de flujo Git. |
+| **Luis Antonio Cárdenas Trejo** | `A01840592` | `@luis-antonio-cardenas` | Diseño de arquitectura del sistema, notebook exploratorio (`1.0-lact-descripcion.ipynb`), diagramas estáticos/interactivos (`architecture.html`) y revisión de PRs. |

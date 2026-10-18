@@ -3,10 +3,10 @@
 - **Repositorio de GitHub:** [https://github.com/oscartrix/TC5061-Proyecto-Equipo11](https://github.com/oscartrix/TC5061-Proyecto-Equipo11)
 - **Experimento en MLflow:** `mibici-equipo11`
 - **Integrantes (Equipo 11):**
-  - Oscar (`@oscartrix`)
-  - Jesús (`@chuycc`)
-  - Jimena (`@JimenaMaSuMu`)
-  - Luis Antonio Cárdenas (`@luis-antonio-cardenas`)
+  - **Jimena María Suárez Muñoz** — `A01652504` (`@JimenaMaSuMu`)
+  - **Jesús Carrillo Cantú** — `A01840421` (`@chuycc`)
+  - **Oscar Alfonso Valenzuela Muñoz** — `A01840486` (`@oscartrix`)
+  - **Luis Antonio Cárdenas Trejo** — `A01840592` (`@luis-antonio-cardenas`)
 
 ---
 

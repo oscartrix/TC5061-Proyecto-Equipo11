@@ -43,6 +43,7 @@ TEST_START_DATE = '2026-07-01'
 # Parámetros globales de reproducibilidad y MLflow
 RANDOM_SEED = 42
 MLFLOW_EXPERIMENT_NAME = 'mibici-equipo11'
+MLFLOW_TRACKING_URI = f'sqlite:///{PROJ_ROOT / "mlflow.db"}'
 TEAM_NAME = 'equipo11'
 
 try:

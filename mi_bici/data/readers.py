@@ -149,7 +149,8 @@ def read_trips(path: Path, year_month: str | None = None) -> pd.DataFrame:
         & df['destination_id'].notna()
         & (df['end_time'] >= df['start_time'])
     )
-    df = df.loc[valid_mask].copy()
+    # Algunos meses traen filas repetidas exactamente iguales
+    df = df.loc[valid_mask].drop_duplicates().copy()
     if year_month is not None:
         df['year_month'] = year_month
 

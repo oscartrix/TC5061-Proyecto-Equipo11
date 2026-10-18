@@ -16,6 +16,7 @@ from mi_bici.config import (
     END_MONTH,
     MANIFEST_PATH,
     PROCESSED_DATA_DIR,
+    PROJ_ROOT,
     START_MONTH,
     STATIONS_PARQUET_PATH,
     TRIPS_PARQUET_PATH,
@@ -124,7 +125,11 @@ def main(
 
     trips_sha = compute_sha256(TRIPS_PARQUET_PATH)
     stations_sha = compute_sha256(STATIONS_PARQUET_PATH)
-    data_version = hashlib.sha256(f'{trips_sha}:{stations_sha}'.encode()).hexdigest()[:12]
+    raw_stations_sha = compute_sha256(stations_path)
+
+    # La versión se calcula con los CSV crudos: el binario Parquet cambia según la versión de pyarrow
+    raw_hashes = [item['sha256'] for item in raw_files_manifest] + [raw_stations_sha]
+    data_version = hashlib.sha256(':'.join(raw_hashes).encode()).hexdigest()[:12]
 
     manifest = {
         'data_version': data_version,
@@ -136,13 +141,13 @@ def main(
         'active_stations': int(stations['is_active'].sum()),
         'processed_files': {
             'trips_parquet': {
-                'path': 'data/processed/trips.parquet',
+                'path': TRIPS_PARQUET_PATH.relative_to(PROJ_ROOT).as_posix(),
                 'rows': int(len(trips)),
                 'size_bytes': int(TRIPS_PARQUET_PATH.stat().st_size),
                 'sha256': trips_sha,
             },
             'stations_parquet': {
-                'path': 'data/processed/stations.parquet',
+                'path': STATIONS_PARQUET_PATH.relative_to(PROJ_ROOT).as_posix(),
                 'rows': int(len(stations)),
                 'size_bytes': int(STATIONS_PARQUET_PATH.stat().st_size),
                 'sha256': stations_sha,
@@ -151,7 +156,7 @@ def main(
         'raw_stations_file': {
             'file': stations_path.name,
             'size_bytes': int(stations_path.stat().st_size),
-            'sha256': compute_sha256(stations_path),
+            'sha256': raw_stations_sha,
         },
         'raw_trip_files': raw_files_manifest,
     }

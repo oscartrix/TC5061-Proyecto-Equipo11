@@ -21,15 +21,15 @@ from mi_bici.config import (
     TRIPS_PARQUET_PATH,
 )
 from mi_bici.data import (
-    compare_headers,
     download_stations,
     download_trips,
     load_sources,
-    read_stations,
-    read_trips,
     select_trip_urls,
+    compare_headers,
     validate_header,
     validate_year_month,
+    read_stations,
+    read_trips,
 )
 
 app = typer.Typer()
@@ -62,6 +62,7 @@ def main(
     ),
     overwrite: bool = typer.Option(False, help='Descargar aunque el archivo ya exista'),
 ):
+
     if start > end:
         raise typer.BadParameter(f'La fecha de inicio ({start}) es posterior a la fecha fin ({end})')
 
@@ -88,6 +89,7 @@ def main(
     total_mb = sum(path.stat().st_size for path in trip_paths.values()) / 1e6
     logger.success(f'Se descargaron los viajes de {len(trip_paths)} meses. Total: {total_mb:,.1f} MB')
 
+    # Viajes: revisar la estructura de los encabezados de cada archivo
     header_summary = compare_headers(trip_paths)
     for year_month, columns in zip(header_summary['year_month'], header_summary['columns']):
         try:

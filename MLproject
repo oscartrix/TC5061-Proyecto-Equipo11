@@ -1,0 +1,24 @@
+name: mibici-equipo11
+
+python_env: python_env.yaml
+
+entry_points:
+  ingest:
+    parameters:
+      start: {type: string, default: "2024-01"}
+      end: {type: string, default: "2026-09"}
+    command: "python -m mi_bici.dataset --start {start} --end {end}"
+
+  features:
+    command: "python -m mi_bici.features"
+
+  train:
+    parameters:
+      tracking_uri: {type: string, default: "sqlite:///mlflow.db"}
+    command: "python -m mi_bici.modeling.train --tracking-uri {tracking_uri}"
+
+  main:
+    parameters:
+      start: {type: string, default: "2024-01"}
+      end: {type: string, default: "2026-09"}
+    command: "python -m mi_bici.dataset --start {start} --end {end} && python -m mi_bici.features && python -m mi_bici.modeling.train"

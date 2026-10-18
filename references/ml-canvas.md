@@ -53,8 +53,8 @@ Anticipar la demanda diaria de bicicletas por estación (P1), clasificar cada ho
 | Pregunta | Baseline | Modelo Candidato Inicial | Métricas de Evaluación |
 |---|---|---|---|
 | **P1** | *Seasonal Naive* (`lag_7d`: viajes del mismo día de la semana anterior) | *Ridge Regression* con variables cíclicas y rezagos (`lag_1d`, `lag_7d`, `lag_14d`, `lag_21d`, `rolling_mean_7d`) | `MAE`, `RMSE`, `WAPE` (calculadas en `val` y `test`) |
-| **P2** | Regla histórica semanal (`risk_lag_168h`: misma clase observada hace 7 días a esa hora) | *Logistic Regression* multiclase con pesos balanceados (`class_weight='balanced'`) | `F1-macro`, `Recall-macro`, `Precision-macro` (en `val` y `test`) + Matriz de confusión |
-| **P3** | *K-Means Geográfico* ($k=4$ usando únicamente `latitude` y `longitude`) | *K-Means sobre Perfil de Uso* ($k=4$ con proporciones horarias, duración, viajes redondos y razón salidas/llegadas estandarizadas) | `Silhouette Score`, `Davies-Bouldin Index` (en `train`) y estabilidad temporal `ARI` (comparando 2024–2025 vs. 2026) |
+| **P2** | Regla histórica semanal (`risk_lag_168h`: misma clase observada hace 7 días a esa hora) | *HistGradientBoostingClassifier* multiclase sobre flujo reciente y presión histórica | `F1-macro`, `Recall-macro`, `Precision-macro` (en `val` y `test`) + Matriz de confusión |
+| **P3** | *K-Means Geográfico* ($k=4$ usando únicamente `latitude` y `longitude`) | *K-Means sobre Perfil de Uso* ($k=4$ con proporciones horarias, duración, viajes redondos y razón salidas/llegadas estandarizadas) | `Silhouette Score`, `Davies-Bouldin Index` (en `train`) y estabilidad temporal `ARI` del modelo de uso (comparando 2024–2025 vs. 2026) |
 
 ---
 
@@ -70,7 +70,7 @@ Anticipar la demanda diaria de bicicletas por estación (P1), clasificar cada ho
 
 ### Features (Sin Fuga Temporal)
 - **P1:** `day_of_week`, `month`, `is_weekend`, `is_holiday`, `lag_1d`, `lag_7d`, `lag_14d`, `lag_21d`, `rolling_mean_7d` (calculada sobre `shift(1)`), `capacity` y `zone` (`GDL`, `ZPN`, `TLQ`).
-- **P2:** `hour`, `day_of_week`, `is_weekend`, `departures`, `arrivals`, `net_flow`, `net_flow_last_3h`, `net_flow_lag_24h`, `net_flow_lag_168h`, `capacity` y `risk_lag_168h`.
+- **P2:** `hour`, `day_of_week`, `is_weekend`, `departures`, `arrivals`, `net_flow`, `pressure_last_3h`, `pressure_window_lag_24h`, `pressure_window_lag_168h`, `pressure_window_lag_336h` y `capacity`; `risk_lag_168h` se usa como baseline.
 - **P3:** `dep_morning` (6–10h entre semana), `dep_midday` (11–15h), `dep_evening` (16–20h), `dep_weekend`, `median_duration_min`, `round_trip_pct`, `avg_daily_trips` y `dep_arr_ratio`, ajustando `StandardScaler` exclusivamente sobre el periodo `Train` (2024–2025).
 
 ---

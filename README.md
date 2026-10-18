@@ -41,6 +41,7 @@ El detalle completo de la formulación se encuentra en [`references/ml-canvas.md
 ├── LICENSE                  <- Licencia del proyecto
 ├── Makefile                 <- Comandos de utilidad (make data, make test, make lint)
 ├── MLproject                <- Definición de entry points reproducibles para MLflow Projects
+├── python_env.yaml          <- Entorno de Python que usa MLproject
 ├── README.md                <- Documentación principal del proyecto
 ├── pyproject.toml           <- Metadatos del paquete mi_bici y declaración de dependencias
 ├── requirements.txt         <- Dependencias del pipeline con versiones fijas
@@ -55,6 +56,7 @@ El detalle completo de la formulación se encuentra en [`references/ml-canvas.md
 ├── models/                  <- Modelos serializados (excluidos de Git)
 ├── notebooks/
 │   ├── 01-jcc-data-ingestion.ipynb                    <- Exploración de ingesta, encodings y esquemas
+│   ├── 1.0-lact-descripcion.ipynb                     <- Exploración descriptiva de viajes y estaciones
 │   └── pruebas/                                       <- Notebooks de experimentación y validación por caso
 │       ├── 1.0-ogt-prueba-limpieza-y-parquet.ipynb    <- Prueba de limpieza, Parquet y manifiesto
 │       ├── 2.0-ogt-prueba-p1-regresion.ipynb          <- Experimentación de P1 (Regresión diaria)
@@ -114,18 +116,20 @@ python -m mi_bici.dataset --start 2024-01 --end 2026-09
 ```
 
 ### Paso 2: Construcción de características sin fuga temporal (`features.py`)
-Genera los conjuntos procesados `p1_features.parquet`, `p2_features.parquet`, `p3_train_features.parquet` y `p3_test_features.parquet`:
+Genera los conjuntos procesados `p1_features.parquet`, `p2_features.parquet`, `p3_train_features.parquet` y `p3_holdout_features.parquet` (perfil de 2026 para medir estabilidad):
 
 ```bash
 python -m mi_bici.features
 ```
 
-### Paso 3:Ejecución del experimento base en MLflow (`modeling/train.py`)
+### Paso 3: Ejecución del experimento base en MLflow (`modeling/train.py`)
 Ejecuta los baselines y modelos candidatos para **P1**, **P2** y **P3**, registrando cada ejecución en el experimento **`mibici-equipo11`** con parámetros (`start_month`, `end_month`, `data_version`, `random_seed`), etiquetas (`team`, `question`, `git_commit`), métricas con prefijo (`val_*`, `test_*`) y artefactos gráficos en `reports/figures/`:
 
 ```bash
 python -m mi_bici.modeling.train
 ```
+
+El pipeline completo también se puede correr con MLflow Projects: `mlflow run . --env-manager local`.
 
 Para abrir la interfaz web de MLflow y revisar o comparar los runs:
 
@@ -140,11 +144,11 @@ pytest
 
 ---
 
-## 6. Buenas Prácticas Obligatorias Aplicadas
+## 6. Buenas Prácticas Aplicadas
 
 | Ámbito | Buenas prácticas implementadas | Dónde se verifica |
 |---|---|---|
-| **MLflow Tracking** | 1. Experimento único `mibici-equipo11` y runs con nombres descriptivos (`p1-baseline-seasonal-naive`, `p1-candidate-ridge-regression`, `p2-baseline-weekly-rule`, `p2-candidate-logistic-regression`, `p3-baseline-kmeans-geo`, `p3-candidate-kmeans-usage`).<br>2. Parámetros de reproducción completos: rango de fechas, `data_version` (SHA-256 del manifiesto), `random_seed=42` e hiperparámetros.<br>3. Etiquetas (`tags`) con `team=equipo11`, `question=P1|P2|P3` y `git_commit`.<br>4. Métricas con prefijo del conjunto (`val_mae`, `test_mae`, `val_f1_macro`, `test_f1_macro`, `train_silhouette_usage`, `test_ari_stability`).<br>5. Sin credenciales ni datos personales registrados. | [`mi_bici/modeling/train.py`](mi_bici/modeling/train.py) e Interfaz de MLflow |
+| **MLflow Tracking** | 1. Experimento único `mibici-equipo11` y runs con nombres descriptivos (`p1-baseline-seasonal-naive`, `p1-candidate-ridge-regression`, `p2-baseline-weekly-rule`, `p2-candidate-hist-gradient-boosting`, `p3-baseline-kmeans-geo`, `p3-candidate-kmeans-usage`).<br>2. Parámetros de reproducción completos: rango de fechas, `data_version` (SHA-256 de los CSV crudos, en el manifiesto), `random_seed=42` e hiperparámetros.<br>3. Etiquetas (`tags`) con `team=equipo11`, `question=P1|P2|P3` y `git_commit`.<br>4. Métricas con prefijo del conjunto (`val_mae`, `test_mae`, `val_f1_macro`, `test_f1_macro`, `train_silhouette_usage`, `holdout_ari_stability`).<br>5. Sin credenciales ni datos personales registrados. | [`mi_bici/modeling/train.py`](mi_bici/modeling/train.py) e Interfaz de MLflow |
 | **Estructura y Código** | 1. Notebooks usados únicamente para exploración y pruebas en `notebooks/` y `notebooks/pruebas/`; la lógica reproducible vive en el paquete `mi_bici/`.<br>2. Configuración centralizada en un único archivo (`mi_bici/config.py`) sin repetir rutas, fechas ni semillas.<br>3. Dependencias con versión fija en `requirements.txt` y `requirements-dev.txt`. | [`mi_bici/config.py`](mi_bici/config.py), [`requirements.txt`](requirements.txt) |
 | **Datos y Git** | 1. `.gitignore` excluye `data/raw/`, `data/processed/`, `*.parquet`, `mlruns/`, `mlartifacts/`, `mlflow.db`, `models/` y `.env`.<br>2. Rama `main` protegida y flujo de trabajo mediante Pull Requests revisados por el equipo. | [`.gitignore`](.gitignore) e historial de PRs en GitHub |
 
@@ -174,7 +178,7 @@ Para mantener la estabilidad del proyecto, la rama `main` está protegida. Todos
 
 ## 8. Integrantes del Equipo 11 y Roles
 
-| Integrante | Matrícula | Usuario GitHub | Rol Principal en esta Entrega |
+| Integrante | Matrícula | Usuario GitHub | Rol principal |
 |---|---|---|---|
 | **Jimena María Suárez Muñoz** | `A01652504` | `@JimenaMaSuMu` | Configuración de seguridad y exclusión de artefactos (`.gitignore`), revisión de contratos de datos y validación de PRs. |
 | **Jesús Carrillo Cantú** | `A01840421` | `@chuycc` | Diseño e implementación de ingesta reproducible (`sources.py`, `readers.py`, `schemas.py`, `dataset.py`), notebook de ingesta y formulación inicial de ML Canvas. |

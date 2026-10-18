@@ -85,11 +85,11 @@ Todos los experimentos se ejecutaron desde [`mi_bici/modeling/train.py`](../mi_b
 | `p2-candidate-hist-gradient-boosting` | Candidato: *HistGradientBoostingClassifier* | **0.5969** | 0.5384 | **0.7407** | **0.6142** | 0.5534 | **0.7602** |
 
 #### Resultados de P3 (Clustering — Segmentación de estaciones por patrón de uso)
-- **Justificación de métricas:** `Silhouette Score` y `Davies-Bouldin Index` evalúan la cohesión y separación en el espacio de comportamiento de uso, mientras que `Adjusted Rand Index (ARI)` mide la estabilidad de los clusters al comparar 2024–2025 contra 2026.
+- **Justificación de métricas:** `Silhouette Score` y `Davies-Bouldin Index` evalúan la cohesión y separación en el espacio de comportamiento de uso, mientras que `Adjusted Rand Index (ARI)` mide la estabilidad de los clusters al comparar 2024–2025 contra 2026. El ARI solo se reporta para el modelo de uso: en el baseline geográfico las coordenadas no cambian entre periodos y la estabilidad sería ~1 por construcción.
 
-| Run en MLflow | Modelo | `train_silhouette_usage` | `train_davies_bouldin_usage` | `test_ari_stability` |
+| Run en MLflow | Modelo | `train_silhouette_usage` | `train_davies_bouldin_usage` | `holdout_ari_stability` |
 |---|---|---:|---:|---:|
-| `p3-baseline-kmeans-geo` | Baseline: *K-Means Geográfico* ($k=4$, lat/lon) | 0.0735 | 2.7883 | 0.9612 |
+| `p3-baseline-kmeans-geo` | Baseline: *K-Means Geográfico* ($k=4$, lat/lon) | 0.0735 | 2.7883 | — |
 | `p3-candidate-kmeans-usage` | Candidato: *K-Means Perfil de Uso* ($k=4$) | **0.1810** | **1.5849** | **0.4721** |
 
 Los 4 clusters identificados por perfil de uso corresponden a:
@@ -102,7 +102,7 @@ Los 4 clusters identificados por perfil de uso corresponden a:
 
 ### 5. Arquitectura del Sistema
 
-El diagrama de arquitectura y la justificación detallada de cada herramienta conforme a las lecturas de la semana se encuentran en [`references/architecture/architecture.md`](../references/architecture/architecture.md).
+El diagrama de arquitectura y la justificación detallada de cada herramienta con base en la bibliografía se encuentran en [`references/architecture/architecture.md`](../references/architecture/architecture.md).
 
 ---
 

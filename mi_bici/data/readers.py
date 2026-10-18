@@ -1,14 +1,10 @@
-"""Leer y validar los CSV de MiBici."""
+"""Leer y validar los CSV de MiBici"""
 
 from pathlib import Path
 
 import pandas as pd
 
 from mi_bici.data.schemas import (
-    STATION_COLUMNS,
-    STATION_DTYPES,
-    STATION_HEADER_VARIANTS,
-    STATION_SOURCE_COLUMNS,
     TRIP_COLUMNS,
     TRIP_DATETIME_COLUMNS,
     TRIP_DATETIME_FORMATS,
@@ -16,7 +12,12 @@ from mi_bici.data.schemas import (
     TRIP_HEADER_VARIANTS,
     TRIP_PERSONAL_COLUMNS,
     TRIP_SOURCE_COLUMNS,
+    STATION_COLUMNS,
+    STATION_DTYPES,
+    STATION_HEADER_VARIANTS,
+    STATION_SOURCE_COLUMNS,
 )
+
 
 CANDIDATE_ENCODINGS = ('utf-8-sig', 'utf-8', 'cp1252', 'latin-1')
 
@@ -34,14 +35,16 @@ def detect_encoding(path: Path, sample_bytes: int = 200_000) -> str:
 
 
 def read_header(path: Path) -> tuple[str, list[str]]:
-    """Regresa la codificación y los nombres de columna de un CSV."""
+    """Regresa la codificación y los nombres de columna de un CSV"""
     encoding = detect_encoding(path)
     columns = pd.read_csv(path, encoding=encoding, nrows=0).columns.tolist()
     return encoding, columns
 
 
 def compare_headers(trip_paths: dict[str, Path]) -> pd.DataFrame:
-    """Compara los headers de todos los archivos para identificar diferencias."""
+    """Compara los headers de todos los archivos para identificar diferencias en
+    encodings, número de columnas, nombres de las columnas y el órden de las columnas.
+    """
     rows = []
     for year_month, path in trip_paths.items():
         encoding, columns = read_header(path)
@@ -54,6 +57,7 @@ def compare_headers(trip_paths: dict[str, Path]) -> pd.DataFrame:
             }
         )
     df = pd.DataFrame(rows)
+
     df['header_variant'] = pd.factorize(df['columns'])[0]
     return df
 
@@ -68,12 +72,12 @@ def validate_header(
     expected: tuple[str, ...] = TRIP_SOURCE_COLUMNS,
     variants: dict[str, set[str]] = TRIP_HEADER_VARIANTS,
 ) -> None:
-    """Verifica número, nombre y orden de columnas contra el contrato."""
+    """Verifica número, nombre y orden de columnas contra el contrato"""
     if len(columns) != len(expected):
         raise ValueError(
             f'Se esperaban {len(expected)} columnas y llegaron {len(columns)}: {columns}'
         )
-
+    
     mismatches = [
         (i, found, name)
         for i, (found, name) in enumerate(zip(columns, expected))
@@ -87,7 +91,7 @@ def validate_header(
 def parse_datetime(
     values: pd.Series, formats: tuple[str, ...] = TRIP_DATETIME_FORMATS
 ) -> tuple[pd.Series, str]:
-    """Convierte la serie a fecha probando los formatos configurados."""
+    """Convierte el valor a fecha en un formato válido"""
     for fmt in formats:
         try:
             return pd.to_datetime(values, format=fmt), fmt
@@ -110,6 +114,7 @@ def parse_datetime(
         return parsed, '+'.join(used_formats)
 
     examples = values.dropna().drop_duplicates().head(3).tolist()
+
     raise ValueError(
         f'La fecha no coincide con ningún formato válido. Formatos: {formats}. Ejemplos: {examples}'
     )
@@ -144,7 +149,8 @@ def read_trips(path: Path, year_month: str | None = None) -> pd.DataFrame:
         & df['destination_id'].notna()
         & (df['end_time'] >= df['start_time'])
     )
-    df = df.loc[valid_mask].copy()
+    # Algunos meses traen filas repetidas exactamente iguales
+    df = df.loc[valid_mask].drop_duplicates().copy()
     if year_month is not None:
         df['year_month'] = year_month
 

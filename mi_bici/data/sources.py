@@ -1,4 +1,4 @@
-"""Descarga de datos de MiBici."""
+"""Descarga de datos de MiBici"""
 
 from pathlib import Path
 import re
@@ -22,20 +22,20 @@ HTTP_HEADERS = {
 
 
 def load_sources(path: Path = SOURCES_PATH) -> dict:
-    """Carga las URL de viajes y estaciones de sources.yaml."""
+    """Carga las URL de viajes y estaciones de sources.yaml"""
     with open(path, encoding='utf-8') as f:
         return yaml.safe_load(f)
 
 
 def validate_year_month(value: str) -> str:
-    """Validar formato (AAAA-MM) de fecha."""
+    """Validar formato (AAAA-MM) de fecha"""
     if not YEAR_MONTH_PATTERN.match(value):
         raise ValueError(f'{value!r} no tiene formato AAAA-MM')
     return value
 
 
 def select_trip_urls(sources: dict, start: str, end: str) -> dict[str, str]:
-    """Regresa el url de los viajes dentro del rango."""
+    """Regresa el url de los viajes dentro del rango"""
     validate_year_month(start)
     validate_year_month(end)
     return {
@@ -96,7 +96,7 @@ def download_file(
 def download_trips(
     trip_urls: dict[str, str], raw_dir: Path = RAW_DATA_DIR, overwrite: bool = False
 ) -> dict[str, Path]:
-    """Descarga los CSV de las url de los viajes."""
+    """Descarga los CSV de las url de los viajes"""
     paths = {}
     for year_month, url in trip_urls.items():
         dest = Path(raw_dir) / 'trips' / Path(url).name
@@ -107,7 +107,7 @@ def download_trips(
 def download_stations(
     sources: dict, raw_dir: Path = RAW_DATA_DIR, overwrite: bool = False
 ) -> Path:
-    """Descarga el catálogo de estaciones."""
+    """Descarga el catálogo de estaciones"""
     url = sources['stations']
     dest = Path(raw_dir) / 'stations' / Path(url).name
     return download_file(url, dest, overwrite=overwrite)

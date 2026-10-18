@@ -14,10 +14,9 @@ import typer
 from mi_bici.config import (
     P1_FEATURES_PATH,
     P2_FEATURES_PATH,
-    P3_TEST_FEATURES_PATH,
+    P3_HOLDOUT_FEATURES_PATH,
     P3_TRAIN_FEATURES_PATH,
     STATIONS_PARQUET_PATH,
-    TEST_START_DATE,
     TRAIN_END_DATE,
     TRIPS_PARQUET_PATH,
     VAL_END_DATE,
@@ -26,8 +25,19 @@ from mi_bici.config import (
 
 app = typer.Typer()
 
-# Días festivos oficiales fijos en México (mes, día)
-FIXED_HOLIDAYS_MX = {(1, 1), (2, 5), (3, 18), (5, 1), (9, 16), (11, 18), (12, 25)}
+# Días de descanso obligatorio en México (LFT art. 74). Tres caen en lunes y cambian cada año.
+FIXED_HOLIDAYS_MX = {(1, 1), (5, 1), (9, 16), (12, 25)}
+MONDAY_HOLIDAYS_MX = {2: 1, 3: 3, 11: 3}  # mes: n-ésimo lunes
+
+
+def is_mx_holiday(day: pd.Timestamp) -> bool:
+    """Indica si la fecha es día de descanso obligatorio en México."""
+    if (day.month, day.day) in FIXED_HOLIDAYS_MX:
+        return True
+    if day.month == 10 and day.day == 1 and (day.year - 2024) % 6 == 0:
+        return True  # transmisión del Poder Ejecutivo
+    nth = MONDAY_HOLIDAYS_MX.get(day.month)
+    return nth is not None and day.dayofweek == 0 and (day.day - 1) // 7 + 1 == nth
 
 
 def assign_temporal_split(dates: pd.Series) -> pd.Series:
@@ -90,12 +100,12 @@ def build_p1_daily_features(trips: pd.DataFrame, stations: pd.DataFrame) -> pd.D
     p1['lag_7d'] = grp.shift(7)
     p1['lag_14d'] = grp.shift(14)
     p1['lag_21d'] = grp.shift(21)
-    p1['rolling_mean_7d'] = grp.shift(1).rolling(7).mean()
+    p1['rolling_mean_7d'] = grp.transform(lambda s: s.shift(1).rolling(7).mean())
 
     p1['day_of_week'] = p1['date'].dt.dayofweek
     p1['month'] = p1['date'].dt.month
     p1['is_weekend'] = (p1['day_of_week'] >= 5).astype(int)
-    p1['is_holiday'] = p1['date'].apply(lambda d: int((d.month, d.day) in FIXED_HOLIDAYS_MX))
+    p1['is_holiday'] = p1['date'].map(is_mx_holiday).astype(int)
     p1['split'] = assign_temporal_split(p1['date'])
 
     p1 = p1.dropna(
@@ -302,15 +312,16 @@ def main(
 
     logger.info('Construyendo perfiles de estación para P3 (Clustering)...')
     train_trips = trips[trips['start_time'].dt.strftime('%Y-%m-%d') <= TRAIN_END_DATE]
-    test_trips = trips[trips['start_time'].dt.strftime('%Y-%m-%d') >= VAL_START_DATE]
+    # Perfil de 2026 (validación + prueba) para medir la estabilidad de los grupos
+    holdout_trips = trips[trips['start_time'].dt.strftime('%Y-%m-%d') >= VAL_START_DATE]
 
     p3_train = build_p3_station_profiles(train_trips, stations)
-    p3_test = build_p3_station_profiles(test_trips, stations)
+    p3_holdout = build_p3_station_profiles(holdout_trips, stations)
     p3_train.to_parquet(P3_TRAIN_FEATURES_PATH, index=False)
-    p3_test.to_parquet(P3_TEST_FEATURES_PATH, index=False)
+    p3_holdout.to_parquet(P3_HOLDOUT_FEATURES_PATH, index=False)
     logger.success(
         f'P3 guardado en {P3_TRAIN_FEATURES_PATH} ({len(p3_train)} estaciones) '
-        f'y {P3_TEST_FEATURES_PATH} ({len(p3_test)} estaciones)'
+        f'y {P3_HOLDOUT_FEATURES_PATH} ({len(p3_holdout)} estaciones)'
     )
 
 

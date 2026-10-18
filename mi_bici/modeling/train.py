@@ -16,7 +16,8 @@ import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA
-from sklearn.linear_model import LogisticRegression, Ridge
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.linear_model import Ridge
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     adjusted_rand_score,
@@ -38,9 +39,10 @@ from mi_bici.config import (
     FIGURES_DIR,
     MANIFEST_PATH,
     MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_TRACKING_URI,
     P1_FEATURES_PATH,
     P2_FEATURES_PATH,
-    P3_TEST_FEATURES_PATH,
+    P3_HOLDOUT_FEATURES_PATH,
     P3_TRAIN_FEATURES_PATH,
     PROJ_ROOT,
     RANDOM_SEED,
@@ -76,7 +78,7 @@ def get_data_version() -> str:
 
 
 def common_params_and_tags(question: str, role: str, model_type: str) -> tuple[dict, dict]:
-    """Construye parámetros y etiquetas obligatorias según la rúbrica."""
+    """Parámetros de reproducción y etiquetas comunes a todos los runs."""
     params = {
         'question': question,
         'role': role,
@@ -287,8 +289,6 @@ def run_p2_experiments() -> None:
         mlflow.log_params(params)
         mlflow.set_tags(tags)
 
-        from sklearn.ensemble import HistGradientBoostingClassifier
-
         clf = HistGradientBoostingClassifier(
             max_iter=150, learning_rate=0.08, max_depth=6, random_state=RANDOM_SEED
         )
@@ -317,7 +317,7 @@ def run_p2_experiments() -> None:
 def run_p3_experiments(n_clusters: int = 4) -> None:
     """Ejecuta y registra en MLflow el baseline geográfico y el clustering de uso para P3."""
     prof_train = pd.read_parquet(P3_TRAIN_FEATURES_PATH)
-    prof_test = pd.read_parquet(P3_TEST_FEATURES_PATH)
+    prof_holdout = pd.read_parquet(P3_HOLDOUT_FEATURES_PATH)
 
     usage_cols = [
         'dep_morning',
@@ -349,18 +349,11 @@ def run_p3_experiments(n_clusters: int = 4) -> None:
         km_geo = KMeans(n_clusters=n_clusters, random_state=RANDOM_SEED, n_init=10)
         labels_geo = km_geo.fit_predict(X_train_geo)
 
-        common_geo = prof_train[['station_id', 'latitude', 'longitude']].assign(c_train=labels_geo).merge(
-            prof_test[['station_id', 'latitude', 'longitude']], on='station_id', how='inner'
-        )
-        labels_geo_test = KMeans(n_clusters=n_clusters, random_state=RANDOM_SEED, n_init=10).fit_predict(
-            geo_scaler.transform(common_geo[['latitude_y', 'longitude_y']].rename(columns={'latitude_y': 'latitude', 'longitude_y': 'longitude'}))
-        )
-
+        # Sin ARI: las coordenadas no cambian entre periodos y la estabilidad saldría ~1 por construcción
         metrics = {
             'train_silhouette_usage': round(float(silhouette_score(X_train_usage, labels_geo)), 4),
             'train_davies_bouldin_usage': round(float(davies_bouldin_score(X_train_usage, labels_geo)), 4),
             'train_silhouette_geo': round(float(silhouette_score(X_train_geo, labels_geo)), 4),
-            'test_ari_stability': round(float(adjusted_rand_score(common_geo['c_train'], labels_geo_test)), 4),
         }
         mlflow.log_metrics(metrics)
 
@@ -392,17 +385,17 @@ def run_p3_experiments(n_clusters: int = 4) -> None:
         labels_usage = km_usage.fit_predict(X_train_usage)
 
         common = prof_train[['station_id']].assign(c_train=labels_usage).merge(
-            prof_test, on='station_id', how='inner'
+            prof_holdout, on='station_id', how='inner'
         )
-        X_test_usage = usage_scaler.transform(common[usage_cols])
-        labels_test_indep = KMeans(
+        X_holdout_usage = usage_scaler.transform(common[usage_cols])
+        labels_holdout = KMeans(
             n_clusters=n_clusters, random_state=RANDOM_SEED, n_init=10
-        ).fit_predict(X_test_usage)
+        ).fit_predict(X_holdout_usage)
 
         metrics = {
             'train_silhouette_usage': round(float(silhouette_score(X_train_usage, labels_usage)), 4),
             'train_davies_bouldin_usage': round(float(davies_bouldin_score(X_train_usage, labels_usage)), 4),
-            'test_ari_stability': round(float(adjusted_rand_score(common['c_train'], labels_test_indep)), 4),
+            'holdout_ari_stability': round(float(adjusted_rand_score(common['c_train'], labels_holdout)), 4),
         }
         mlflow.log_metrics(metrics)
 
@@ -440,10 +433,7 @@ def run_p3_experiments(n_clusters: int = 4) -> None:
 
 @app.command()
 def main(
-    tracking_uri: str = typer.Option(
-        f'sqlite:///{PROJ_ROOT / "mlflow.db"}',
-        help='URI de MLflow Tracking',
-    ),
+    tracking_uri: str = typer.Option(MLFLOW_TRACKING_URI, help='URI de MLflow Tracking'),
 ):
     """Ejecuta los experimentos base y candidatos de P1, P2 y P3 registrándolos en MLflow."""
     mlflow.set_tracking_uri(tracking_uri)

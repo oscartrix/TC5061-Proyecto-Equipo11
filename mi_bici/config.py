@@ -27,7 +27,7 @@ STATIONS_PARQUET_PATH = PROCESSED_DATA_DIR / 'stations.parquet'
 P1_FEATURES_PATH = PROCESSED_DATA_DIR / 'p1_features.parquet'
 P2_FEATURES_PATH = PROCESSED_DATA_DIR / 'p2_features.parquet'
 P3_TRAIN_FEATURES_PATH = PROCESSED_DATA_DIR / 'p3_train_features.parquet'
-P3_TEST_FEATURES_PATH = PROCESSED_DATA_DIR / 'p3_test_features.parquet'
+P3_HOLDOUT_FEATURES_PATH = PROCESSED_DATA_DIR / 'p3_holdout_features.parquet'
 
 MANIFEST_PATH = PROJ_ROOT / 'config' / 'data_manifest.json'
 

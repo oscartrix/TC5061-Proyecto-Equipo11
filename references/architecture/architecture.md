@@ -1,6 +1,6 @@
 # Arquitectura del Sistema MLOps — Proyecto MiBici (Equipo 11)
 
-Este documento presenta la arquitectura de extremo a extremo de la solución propuesta por el **Equipo 11** para responder las tres preguntas de negocio sobre el sistema **MiBici** (P1: Regresión de demanda diaria, P2: Clasificación horaria de riesgo de déficit/excedente, y P3: Clustering de estaciones por perfil de uso), así como la justificación técnica de cada herramienta con base en la bibliografía del curso.
+Este documento presenta la arquitectura de extremo a extremo de la solución propuesta por el **Equipo 11** para responder las tres preguntas de negocio sobre el sistema **MiBici** (P1: Regresión de demanda diaria, P2: Clasificación horaria de riesgo de déficit/excedente, y P3: Clustering de estaciones por perfil de uso), así como la justificación técnica de cada herramienta con base en la bibliografía.
 
 **[Abrir Diagrama Interactivo Complementario (HTML)](architecture.html)**
 

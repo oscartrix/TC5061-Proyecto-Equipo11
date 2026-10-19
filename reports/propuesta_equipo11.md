@@ -42,7 +42,7 @@ El detalle completo del **Machine Learning Canvas** se encuentra en [`references
    - Se seleccionaron **33 meses continuos** (`2024-01` a `2026-09`). Este rango captura dos ciclos anuales completos (`2024` y `2025`) para aprender la estacionalidad anual (temporada de lluvias en verano en Guadalajara, periodos vacacionales y ciclos escolares) sobre la red actual de estaciones, reservando los 9 meses de `2026` para validación y prueba.
 3. **Tamaño real obtenido:**
    - **Meses descargados:** 33 archivos CSV (peso crudo total: **1,070.1 MB**, promedio de 32.4 MB por mes; 18 archivos en codificación `utf-8-sig` y 15 en `cp1252`).
-   - **Viajes limpios consolidados:** **12,540,018 viajes** válidos almacenados en `data/processed/trips.parquet` (**236.26 MB**, versión de datos SHA-256: `381e86994085`).
+   - **Viajes limpios consolidados:** **12,539,260 viajes** válidos almacenados en `data/processed/trips.parquet` (**236.25 MB**, versión de datos SHA-256: `a6306ebfef13`).
    - **Estaciones registradas:** **484 estaciones** en `data/processed/stations.parquet`, de las cuales **470 están activas** (`capacity > 0` y sin prefijo `ex-`) y **14 son estaciones retiradas** (`ex-`), distribuidas en tres zonas: `GDL` (357), `ZPN` (110) y `TLQ` (17).
 4. **Variables originales y tratamiento de datos personales:**
    - **Viajes:** De las 8 columnas originales (`Viaje_Id`, `Usuario_Id`, `Genero`, `Año_de_nacimiento`, `Inicio_del_viaje`, `Fin_del_viaje`, `Origen_Id`, `Destino_Id`), se conservan únicamente las variables operativas (`trip_id`, `start_time`, `end_time`, `origin_id`, `destination_id`).
@@ -58,7 +58,7 @@ El detalle completo del **Machine Learning Canvas** se encuentra en [`references
 
 | Etapa | P1 (Regresión Diaria) | P2 (Clasificación Horaria) | P3 (Clustering de Estaciones) |
 |---|---|---|---|
-| **1. Limpieza y Agregación** | Conteo diario de viajes iniciados sobre la malla completa de las 470 estaciones activas (`462,010` registros estación-día). | Conteo horario de salidas (`departures`), llegadas (`arrivals`) y flujo neto (`arrivals - departures`) en las 50 estaciones activas de mayor flujo (`1,188,650` registros estación-hora). | Agregación por estación activa separando el periodo `Train` (2024–2025, `371` estaciones con viajes) del periodo `2026` (`469` estaciones). |
+| **1. Limpieza y Agregación** | Conteo diario de viajes iniciados sobre la malla completa de las 470 estaciones activas (`462,010` registros estación-día). | Conteo horario de salidas (`departures`), llegadas (`arrivals`) y flujo neto (`arrivals - departures`) en las 50 estaciones activas de mayor flujo (`1,187,850` registros estación-hora). | Agregación por estación activa separando el periodo `Train` (2024–2025, `371` estaciones con viajes) del periodo `2026` (`469` estaciones). |
 | **2. Feature Engineering (sin fuga temporal)** | `lag_1d`, `lag_7d`, `lag_14d`, `lag_21d`, `rolling_mean_7d` (sobre `shift(1)`), `day_of_week`, `month`, `is_weekend`, `is_holiday`, `capacity` y `zone`. | `hour`, `day_of_week`, `is_weekend`, `departures`, `arrivals`, `net_flow`, `pressure_last_3h` ($t-2..t$) y presión histórica en la misma ventana de 3h hace 24h (`pressure_window_lag_24h`), 7 días (`168h`) y 14 días (`336h`). | Proporción de salidas en mañana (`6-10h`), mediodía (`11-15h`), tarde (`16-20h`) y fin de semana (`dep_weekend`), `median_duration_min`, `round_trip_pct`, `avg_daily_trips` y `dep_arr_ratio`. |
 | **3. Preprocesamiento** | `StandardScaler` en numéricas y `OneHotEncoder` en `zone`, ajustados solo con `Train`. | Árboles de gradiente (`HistGradientBoostingClassifier`) ajustados solo sobre `Train`. | `StandardScaler` ajustado exclusivamente sobre el perfil `Train` (2024–2025). |
 
@@ -66,23 +66,23 @@ El detalle completo del **Machine Learning Canvas** se encuentra en [`references
 
 ### 4. Modelos Propuestos, Métricas y Resultados del Experimento Base en MLflow
 
-Todos los experimentos se ejecutaron desde [`mi_bici/modeling/train.py`](../mi_bici/modeling/train.py) y quedaron registrados en el experimento **`mibici-equipo11`** con `data_version=381e86994085` y `random_seed=42`.
+Todos los experimentos se ejecutaron desde [`mi_bici/modeling/train.py`](../mi_bici/modeling/train.py) y quedaron registrados en el experimento **`mibici-equipo11`** con `data_version=a6306ebfef13` y `random_seed=42`.
 
 #### Resultados de P1 (Regresión — Predicción diaria de viajes por estación)
 - **Justificación de métricas:** `MAE` mide el error promedio en número de bicicletas por estación-día; `RMSE` penaliza errores grandes en estaciones de alta demanda; `WAPE` expresa el error absoluto total como porcentaje del volumen total del sistema.
 
 | Run en MLflow | Modelo | `val_mae` | `val_rmse` | `val_wape` | `test_mae` | `test_rmse` | `test_wape` |
 |---|---|---:|---:|---:|---:|---:|---:|
-| `p1-baseline-seasonal-naive` | Baseline: *Seasonal Naive* (`lag_7d`) | 6.7039 | 14.7008 | 0.2730 | 7.1918 | 13.5919 | 0.2447 |
-| `p1-candidate-ridge-regression` | Candidato: *Ridge Regression* | **5.6612** | **11.5226** | **0.2305** | **6.1391** | **11.2321** | **0.2089** |
+| `p1-baseline-seasonal-naive` | Baseline: *Seasonal Naive* (`lag_7d`) | 6.7039 | 14.7008 | 0.2730 | 7.1863 | 13.5824 | 0.2447 |
+| `p1-candidate-ridge-regression` | Candidato: *Ridge Regression* | **5.5817** | **11.4061** | **0.2273** | **6.1448** | **11.2105** | **0.2092** |
 
 #### Resultados de P2 (Clasificación — Riesgo horario en ventana de 3 horas)
 - **Justificación de métricas:** Al existir desbalance entre `balanceado` (~77%) y las clases críticas `deficit` (~11%) y `excedente` (~12%), la exactitud (*accuracy*) sería engañosa; por ello se evalúan `F1-macro`, `Recall-macro` y `Precision-macro`.
 
 | Run en MLflow | Modelo | `val_f1_macro` | `val_recall_macro` | `val_precision_macro` | `test_f1_macro` | `test_recall_macro` | `test_precision_macro` |
 |---|---|---:|---:|---:|---:|---:|---:|
-| `p2-baseline-weekly-rule` | Baseline: Misma clase hace 7 días (`lag_168h`) | 0.5666 | **0.5658** | 0.5673 | 0.5886 | **0.5867** | 0.5906 |
-| `p2-candidate-hist-gradient-boosting` | Candidato: *HistGradientBoostingClassifier* | **0.5969** | 0.5384 | **0.7407** | **0.6142** | 0.5534 | **0.7602** |
+| `p2-baseline-weekly-rule` | Baseline: Misma clase hace 7 días (`lag_168h`) | 0.5666 | **0.5658** | 0.5673 | 0.5884 | **0.5865** | 0.5903 |
+| `p2-candidate-hist-gradient-boosting` | Candidato: *HistGradientBoostingClassifier* | **0.5969** | 0.5384 | **0.7407** | **0.6142** | 0.5535 | **0.7598** |
 
 #### Resultados de P3 (Clustering — Segmentación de estaciones por patrón de uso)
 - **Justificación de métricas:** `Silhouette Score` y `Davies-Bouldin Index` evalúan la cohesión y separación en el espacio de comportamiento de uso, mientras que `Adjusted Rand Index (ARI)` mide la estabilidad de los clusters al comparar 2024–2025 contra 2026. El ARI solo se reporta para el modelo de uso: en el baseline geográfico las coordenadas no cambian entre periodos y la estabilidad sería ~1 por construcción.
@@ -90,7 +90,7 @@ Todos los experimentos se ejecutaron desde [`mi_bici/modeling/train.py`](../mi_b
 | Run en MLflow | Modelo | `train_silhouette_usage` | `train_davies_bouldin_usage` | `holdout_ari_stability` |
 |---|---|---:|---:|---:|
 | `p3-baseline-kmeans-geo` | Baseline: *K-Means Geográfico* ($k=4$, lat/lon) | 0.0735 | 2.7883 | — |
-| `p3-candidate-kmeans-usage` | Candidato: *K-Means Perfil de Uso* ($k=4$) | **0.1810** | **1.5849** | **0.4721** |
+| `p3-candidate-kmeans-usage` | Candidato: *K-Means Perfil de Uso* ($k=4$) | **0.1810** | **1.5849** | **0.4665** |
 
 Los 4 clusters identificados por perfil de uso corresponden a:
 1. **Cluster 0 (Mixto / Recreativo y universitario):** Mayor proporción de viajes al mediodía (`28.4%`) y mayor tasa de viajes redondos (`7.6%`).

@@ -93,10 +93,10 @@ Todos los experimentos se ejecutaron desde [`mi_bici/modeling/train.py`](../mi_b
 | `p3-candidate-kmeans-usage` | Candidato: *K-Means Perfil de Uso* ($k=4$) | **0.1810** | **1.5849** | **0.4665** |
 
 Los 4 clusters identificados por perfil de uso corresponden a:
-1. **Cluster 0 (Mixto / Recreativo y universitario):** Mayor proporción de viajes al mediodía (`28.4%`) y mayor tasa de viajes redondos (`7.6%`).
-2. **Cluster 1 (Residencial / Emisor matutino):** Pico pronunciado en la mañana (`29.8%` de salidas entre 6 y 10 h).
-3. **Cluster 2 (Laboral / Emisor vespertino de recorridos largos):** Fuerte pico vespertino (`38.2%` entre 16 y 20 h), mayor duración mediana (`12.4 min`) y razón salidas/llegadas de `1.34`.
-4. **Cluster 3 (Nodos centrales de alta rotación):** Demanda intensiva promedio de **67.4 viajes diarios por estación** con flujo balanceado (`dep_arr_ratio = 1.03`).
+1. **Cluster 0 (Mixto / Recreativo y universitario, $n=36$):** Mayor proporción de viajes al mediodía (`28.4%`) y mayor tasa de viajes redondos (`7.6%`).
+2. **Cluster 1 (Residencial / Emisor matutino, $n=147$):** Pico pronunciado en la mañana (`29.8%` de salidas entre 6 y 10 h).
+3. **Cluster 2 (Laboral / Emisor vespertino de recorridos largos, $n=96$):** Fuerte pico vespertino (`38.2%` entre 16 y 20 h), mayor duración mediana (`12.4 min`) y razón salidas/llegadas de `1.34`.
+4. **Cluster 3 (Nodos centrales de alta rotación, $n=92$):** Demanda intensiva promedio de **67.4 viajes diarios por estación** con flujo balanceado (`dep_arr_ratio = 1.03`).
 
 ---
 

@@ -1,17 +1,17 @@
 {
-  "data_version": "381e86994085",
+  "data_version": "a6306ebfef13",
   "start_month": "2024-01",
   "end_month": "2026-09",
   "n_months": 33,
-  "total_clean_trips": 12540018,
+  "total_clean_trips": 12539260,
   "total_stations": 484,
   "active_stations": 470,
   "processed_files": {
     "trips_parquet": {
       "path": "data/processed/trips.parquet",
-      "rows": 12540018,
-      "size_bytes": 236258570,
-      "sha256": "9107877e722845bbd107978fbb67437ddd6f772393dc6bbb0fd5104f6a43df44"
+      "rows": 12539260,
+      "size_bytes": 236254049,
+      "sha256": "d4e2c0ef0e56b923247a6a38bce64bfafc063fb6b828c9fbb9c6d1b1d6286fac"
     },
     "stations_parquet": {
       "path": "data/processed/stations.parquet",
@@ -253,7 +253,7 @@
     {
       "year_month": "2026-09",
       "file": "datos_abiertos_2026_09.csv",
-      "rows_clean": 490056,
+      "rows_clean": 489298,
       "size_bytes": 42566896,
       "sha256": "00b5cf64cc31a502d01044d905f6e033f9bc1db962e771119742fd25c6cb58b3"
     }

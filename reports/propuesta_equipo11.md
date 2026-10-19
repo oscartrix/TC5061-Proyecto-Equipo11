@@ -29,7 +29,7 @@ $$\text{pressure\_ratio}_{s,t} = \frac{\sum_{h=1}^{3} (\text{arrivals}_{s, t+h} 
 - **`excedente`** ($\text{pressure\_ratio}_{s,t} \ge +0.30$): En las siguientes 3 horas llegarán en términos netos al menos el 30% de la capacidad total de la estación, poniéndola en alto riesgo de quedarse sin anclajes disponibles (`11.92%` de los casos).
 - **`balanceado`** ($-0.30 < \text{pressure\_ratio}_{s,t} < +0.30$): El flujo de entradas y salidas se compensa dentro de un margen manejable (`76.95%` de los casos).
 
-El detalle completo del **Machine Learning Canvas** se encuentra en [`references/ml-canvas.md`](../references/ml-canvas.md).
+El **Machine Learning Canvas** completo está en [`references/ml-canvas.md`](../references/ml-canvas.md) y se incluye como **Anexo A** en la versión PDF.
 
 ---
 
@@ -124,9 +124,28 @@ Los 6 runs se registran en el experimento `mibici-equipo11` (backend `sqlite:///
 
 ### 6. Arquitectura del Sistema
 
-![Diagrama de arquitectura](../references/architecture/architecture_diagram.png)
+El diagrama muestra los componentes de la solución, desde las fuentes de datos hasta el registro de experimentos. Su fuente en Mermaid está en [`references/architecture/architecture.md`](../references/architecture/architecture.md).
 
-La justificación detallada de cada herramienta con base en la bibliografía se encuentra en [`references/architecture/architecture.md`](../references/architecture/architecture.md).
+![Diagrama de arquitectura del sistema](../references/architecture/architecture_system.png)
+
+#### Herramientas por componente
+
+| Componente | Herramienta Elegida | Justificación técnica |
+|---|---|---|
+| **Estructura y Empaquetado** | **Cookiecutter Data Science (`ccds`) + `pyproject.toml` + `uv` + `MLproject`** | Siguiendo a **Wilson (2022, Cap. 6)** y **Lauchande (2021, Cap. 5)**, separar el código exploratorio (`notebooks/`) de los módulos reutilizables (`mi_bici/`) evita la fragilidad de ejecutar celdas manuales fuera de orden. El archivo `MLproject` y los puntos de entrada CLI con `Typer` permiten que cualquier integrante reproduzca el flujo con un solo comando. |
+| **Ingesta y Contratos de Datos** | **Python (`requests`, `pandas`, esquemas declarativos en `schemas.py`)** | **Huyen (2022, Cap. 6)** destaca que los cambios silenciosos de esquema y codificación son una de las principales causas de fallas en pipelines de ML. Nuestro módulo `readers.py` detecta automáticamente `utf-8-sig` vs. `cp1252`, valida contratos de encabezados (`Año_de_nacimiento`), unifica formatos de fecha mixtos y elimina datos personales desde la entrada. |
+| **Almacenamiento Analítico** | **Apache Parquet (`pyarrow`)** | Frente a ~1.07 GB de archivos CSV en texto plano, Parquet ofrece almacenamiento columnar comprimido y preserva los tipos exactos (`datetime64[ns]`, `Int32`, `float64`), lo que acelera la lectura en las etapas de ingeniería de características y entrenamiento (**Huyen, 2022**). |
+| **Versionado de Datos** | **Manifiesto JSON versionado en Git con `hashlib` (`sha256`)** | **Treveil et al. (2020)** enfatizan que la reproducibilidad en MLOps exige ligar cada modelo no solo con la versión del código (`git_commit`), sino también con la versión exacta de los datos (`data_version`). El manifiesto `config/data_manifest.json` registra el hash SHA-256 y conteo de filas de cada archivo (el `data_version` se deriva de los CSV crudos para no depender de la versión de `pyarrow`) sin subir datos pesados al repositorio Git. |
+| **Procesamiento y Modelado** | **`pandas` + `scikit-learn` (`Pipeline`, `ColumnTransformer`)** | Encapsular el escalado (`StandardScaler`) y codificación (`OneHotEncoder`) dentro de `Pipeline` ajustado exclusivamente sobre el conjunto `Train` (`2024-01` a `2025-12`) previene la fuga de información futura (*data leakage*) hacia validación y prueba (**Huyen, 2022; Wilson, 2022**). |
+| **Registro de Experimentos** | **MLflow Tracking (`sqlite:///mlflow.db`)** | Como exponen **Lauchande (2021)** y **Wilson (2022)**, comparar baselines contra modelos candidatos requiere un registro sistemático de parámetros, métricas prefijadas por partición (`val_mae`, `test_mae`), etiquetas de trazabilidad (`git_commit`, `question`, `team`) y artefactos visuales (matrices de confusión, series y mapas de clusters). |
+
+---
+
+### 7. Estructura del Repositorio
+
+El repositorio se generó con Cookiecutter Data Science (`ccds`) y conserva su separación de carpetas: configuración en `config/`, código en `mi_bici/`, notebooks de exploración en `notebooks/`, ML Canvas y arquitectura en `references/`, y reportes y figuras en `reports/`.
+
+![Estructura del repositorio en GitHub](figures/repo-estructura.png)
 
 ---
 

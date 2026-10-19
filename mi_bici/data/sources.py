@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import re
+import time
 
 import requests
 import yaml
@@ -50,23 +51,46 @@ def download_file(
     overwrite: bool = False,
     timeout: int = 60,
     http_headers: dict | None = None,
+    max_retries: int = 5,
 ) -> Path:
-    """Descarga un archivo.
-    Si el archivo ya existe y overwrite es False, no lo vuelve a descargar.
-    """
+    """Descarga un archivo con soporte de reintentos y continuación parcial (.part)."""
     dest = Path(dest)
     if dest.exists() and not overwrite:
         return dest
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + '.part')
-    http_headers = HTTP_HEADERS if http_headers is None else http_headers
-    with requests.get(url, headers=http_headers, stream=True, timeout=timeout) as response:
-        response.raise_for_status()
-        with open(tmp, 'wb') as f:
-            f.writelines(response.iter_content(chunk_size=1024 * 1024))
-    tmp.replace(dest)
-    return dest
+    if overwrite and tmp.exists():
+        tmp.unlink()
+
+    base_headers = dict(HTTP_HEADERS if http_headers is None else http_headers)
+    last_error = None
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            headers = dict(base_headers)
+            mode = 'wb'
+            if tmp.exists() and tmp.stat().st_size > 0:
+                headers['Range'] = f'bytes={tmp.stat().st_size}-'
+                mode = 'ab'
+
+            with requests.get(url, headers=headers, stream=True, timeout=timeout) as response:
+                if response.status_code == 200 and mode == 'ab':
+                    # Si el servidor no aplicó Range, reiniciar archivo temporal
+                    mode = 'wb'
+                response.raise_for_status()
+                with open(tmp, mode) as f:
+                    for chunk in response.iter_content(chunk_size=1024 * 1024):
+                        if chunk:
+                            f.write(chunk)
+            tmp.replace(dest)
+            return dest
+        except requests.RequestException as err:
+            last_error = err
+            if attempt < max_retries:
+                time.sleep(2 * attempt)
+
+    raise RuntimeError(f'No se pudo descargar {url} tras {max_retries} intentos') from last_error
 
 
 def download_trips(

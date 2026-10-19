@@ -21,8 +21,31 @@ MODELS_DIR = PROJ_ROOT / "models"
 REPORTS_DIR = PROJ_ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
 
-# If tqdm is installed, configure loguru with tqdm.write
-# https://github.com/Delgan/loguru/issues/135
+# Rutas de datos limpios en Parquet y manifiesto de versionado
+TRIPS_PARQUET_PATH = PROCESSED_DATA_DIR / 'trips.parquet'
+STATIONS_PARQUET_PATH = PROCESSED_DATA_DIR / 'stations.parquet'
+P1_FEATURES_PATH = PROCESSED_DATA_DIR / 'p1_features.parquet'
+P2_FEATURES_PATH = PROCESSED_DATA_DIR / 'p2_features.parquet'
+P3_TRAIN_FEATURES_PATH = PROCESSED_DATA_DIR / 'p3_train_features.parquet'
+P3_HOLDOUT_FEATURES_PATH = PROCESSED_DATA_DIR / 'p3_holdout_features.parquet'
+
+MANIFEST_PATH = PROJ_ROOT / 'config' / 'data_manifest.json'
+
+# Rango de fechas de estudio y cortes de partición temporal (sin fuga del futuro)
+START_MONTH = '2024-01'
+END_MONTH = '2026-09'
+
+TRAIN_END_DATE = '2025-12-31'
+VAL_START_DATE = '2026-01-01'
+VAL_END_DATE = '2026-06-30'
+TEST_START_DATE = '2026-07-01'
+
+# Parámetros globales de reproducibilidad y MLflow
+RANDOM_SEED = 42
+MLFLOW_EXPERIMENT_NAME = 'mibici-equipo11'
+MLFLOW_TRACKING_URI = f'sqlite:///{PROJ_ROOT / "mlflow.db"}'
+TEAM_NAME = 'equipo11'
+
 try:
     from tqdm import tqdm
 

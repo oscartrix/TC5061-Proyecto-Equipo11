@@ -98,6 +98,21 @@ def parse_datetime(
         except ValueError:
             continue
 
+    # Soporte para archivos donde coexisten registros en distintos formatos conocidos
+    parsed = pd.Series(pd.NaT, index=values.index, dtype='datetime64[ns]')
+    used_formats = []
+    for fmt in formats:
+        mask = parsed.isna() & values.notna()
+        if not mask.any():
+            break
+        attempt = pd.to_datetime(values.loc[mask], format=fmt, errors='coerce')
+        if attempt.notna().any():
+            parsed.loc[mask] = attempt
+            used_formats.append(fmt)
+
+    if parsed.notna().sum() == values.notna().sum() and used_formats:
+        return parsed, '+'.join(used_formats)
+
     examples = values.dropna().drop_duplicates().head(3).tolist()
 
     raise ValueError(
@@ -105,7 +120,8 @@ def parse_datetime(
     )
 
 
-def read_trips(path: Path) -> pd.DataFrame:
+def read_trips(path: Path, year_month: str | None = None) -> pd.DataFrame:
+    """Lee un CSV mensual de viajes descartando columnas personales y normalizando fechas."""
     encoding, columns = read_header(path)
     validate_header(columns)
 
@@ -125,18 +141,37 @@ def read_trips(path: Path) -> pd.DataFrame:
 
     for column in TRIP_DATETIME_COLUMNS:
         df[column], datetime_formats[column] = parse_datetime(df[column])
-    
+
+    valid_mask = (
+        df['start_time'].notna()
+        & df['end_time'].notna()
+        & df['origin_id'].notna()
+        & df['destination_id'].notna()
+        & (df['end_time'] >= df['start_time'])
+    )
+    # Algunos meses traen filas repetidas exactamente iguales
+    df = df.loc[valid_mask].drop_duplicates().copy()
+    if year_month is not None:
+        df['year_month'] = year_month
+
     df.attrs['datetime_formats'] = datetime_formats
     return df
 
 
 def read_stations(path: Path) -> pd.DataFrame:
+    """Lee y valida el catálogo de estaciones extrayendo código de zona y estado activo."""
     encoding, columns = read_header(path)
     validate_header(columns, STATION_SOURCE_COLUMNS, STATION_HEADER_VARIANTS)
-    return pd.read_csv(
+    df = pd.read_csv(
         path,
         encoding=encoding,
         header=0,
         names=list(STATION_COLUMNS),
         dtype=STATION_DTYPES,
     )
+    df['zone'] = (
+        df['name'].str.extract(r'^(?:ex-)?\(?([A-Z]{3})-\d{3}\)?', expand=False).fillna('OTRO')
+    )
+    df['is_ex'] = df['name'].str.startswith('ex-')
+    df['is_active'] = (~df['is_ex']) & (df['capacity'] > 0)
+    return df

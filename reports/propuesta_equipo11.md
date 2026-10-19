@@ -100,9 +100,33 @@ Los 4 clusters identificados por perfil de uso corresponden a:
 
 ---
 
-### 5. Arquitectura del Sistema
+### 5. Evidencia de Experimentación en MLflow
 
-El diagrama de arquitectura y la justificación detallada de cada herramienta con base en la bibliografía se encuentran en [`references/architecture/architecture.md`](../references/architecture/architecture.md).
+Los 6 runs se registran en el experimento `mibici-equipo11` (backend `sqlite:///mlflow.db`). Todos llevan `data_version = a6306ebfef13` y el tag `git_commit`, lo que permite reproducir cada resultado con el mismo dato y el mismo código.
+
+**Lista de runs del experimento con sus métricas principales:**
+
+![Lista de runs en MLflow](figures/mlflow/1-list-runs.png)
+
+**Detalle de un run (parámetros y tags de trazabilidad):**
+
+![Detalle del run p3-baseline-kmeans-geo](figures/mlflow/2-detalle-run.png)
+
+**Artefacto registrado en el run (mapa de clusters geográficos):**
+
+![Artefacto del run p3-baseline-kmeans-geo](figures/mlflow/3-artifact.png)
+
+**Comparación del baseline y el candidato de P1:**
+
+![Comparación de runs de P1](figures/mlflow/4-compare.png)
+
+---
+
+### 6. Arquitectura del Sistema
+
+![Diagrama de arquitectura](../references/architecture/architecture_diagram.png)
+
+La justificación detallada de cada herramienta con base en la bibliografía se encuentra en [`references/architecture/architecture.md`](../references/architecture/architecture.md).
 
 ---
 

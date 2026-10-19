@@ -104,6 +104,18 @@ pip install -e . --no-deps
 nbstripout --install --attributes .gitattributes
 ```
 
+### El pipeline completo también puede ejecutarse mediante MLflow Projects:
+
+```bash
+mlflow run . --env-manager local
+```
+
+Si se presenta un error relacionado con la incompatibilidad entre los identificadores de los experimentos de MLflow (active experiment ID does not match environment run ID), se puede especificar explícitamente el nombre del experimento:
+
+```bash
+mlflow run . --env-manager local --experiment-name mibici-equipo11
+```
+
 ---
 
 ## 5. Ejecución del Pipeline (Ingesta, Features y Experimento Base en MLflow)

@@ -1,0 +1,17 @@
+name: mibici-equipo11
+
+python_env: python_env.yaml
+
+# Fechas, rutas y URI de tracking se leen de mi_bici/config.py
+entry_points:
+  ingest:
+    command: "python -m mi_bici.dataset"
+
+  features:
+    command: "python -m mi_bici.features"
+
+  train:
+    command: "python -m mi_bici.modeling.train"
+
+  main:
+    command: "python -m mi_bici.dataset && python -m mi_bici.features && python -m mi_bici.modeling.train"

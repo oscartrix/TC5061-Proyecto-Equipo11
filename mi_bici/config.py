@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -43,8 +44,25 @@ TEST_START_DATE = '2026-07-01'
 # Parámetros globales de reproducibilidad y MLflow
 RANDOM_SEED = 42
 MLFLOW_EXPERIMENT_NAME = 'mibici-equipo11'
-MLFLOW_TRACKING_URI = f'sqlite:///{PROJ_ROOT / "mlflow.db"}'
+MLFLOW_TRACKING_URI = os.getenv('MLFLOW_TRACKING_URI', 'http://127.0.0.1:5000')
+MLFLOW_BACKEND_STORE_URI = f'sqlite:///{PROJ_ROOT / "mlflow.db"}'
 TEAM_NAME = 'equipo11'
+
+# Modelos disponibles por pregunta y sus hiperparámetros por default
+MODEL_DEFAULTS = {
+    'p1': {
+        'baseline': {},
+        'ridge': {'alpha': 1.0},
+    },
+    'p2': {
+        'baseline': {},
+        'hgb': {'max_iter': 150, 'learning_rate': 0.08, 'max_depth': 6},
+    },
+    'p3': {
+        'baseline': {'n_clusters': 4},
+        'kmeans_usage': {'n_clusters': 4},
+    },
+}
 
 try:
     from tqdm import tqdm

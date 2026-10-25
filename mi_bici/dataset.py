@@ -36,8 +36,10 @@ from mi_bici.data import (
 app = typer.Typer()
 
 
-def year_month_option(value: str) -> str:
+def year_month_option(param: typer.CallbackParam, value: str) -> str:
     """Validar formato de fecha."""
+    if not value:
+        value = param.default
     try:
         return validate_year_month(value)
     except ValueError as error:

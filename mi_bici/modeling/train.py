@@ -1,11 +1,12 @@
-"""Entrenamiento y registro en MLflow de baselines y modelos candidatos para P1, P2 y P3.
+"""Entrenamiento y registro en MLflow de un modelo (baseline o candidato) de P1, P2 o P3.
+
+Cada ejecución genera una sola corrida en MLflow.
 
 Uso:
-    python -m mi_bici.modeling.train
+    python -m mi_bici.modeling.train --question p1 --model ridge --alpha 0.5
 """
 
 import json
-from pathlib import Path
 import subprocess
 import os
 
@@ -53,6 +54,7 @@ from mi_bici.config import (
     TRAIN_END_DATE,
     VAL_END_DATE,
     VAL_START_DATE,
+    MODEL_DEFAULTS,
 )
 
 app = typer.Typer()
@@ -113,8 +115,8 @@ def regression_metrics(y_true: np.ndarray, y_pred: np.ndarray, prefix: str) -> d
     }
 
 
-def run_p1_experiments() -> None:
-    """Ejecuta y registra en MLflow el baseline y modelo candidato de P1 (Regresión)."""
+def run_p1(model: str, hparams: dict) -> None:
+    """Entrena y registra en la corrida activa el baseline o el candidato de P1 (Regresión)."""
     df = pd.read_parquet(P1_FEATURES_PATH)
     train_df = df[df['split'] == 'train'].copy()
     val_df = df[df['split'] == 'val'].copy()
@@ -122,8 +124,8 @@ def run_p1_experiments() -> None:
 
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 1. Baseline P1: Seasonal Naive (mismo día de la semana anterior = lag_7d)
-    with mlflow.start_run(run_name='p1-baseline-seasonal-naive', nested=True):
+    # Baseline P1: Seasonal Naive (mismo día de la semana anterior = lag_7d)
+    if model == 'baseline':
         params, tags = common_params_and_tags('P1', 'baseline', 'SeasonalNaive_lag7d')
         params['horizon'] = '1_day'
         params['granularity'] = 'station_day'
@@ -150,8 +152,9 @@ def run_p1_experiments() -> None:
         plt.close(fig)
         mlflow.log_artifact(str(fig_path))
         logger.info(f'P1 Baseline registrado: {metrics}')
+        return
 
-    # 2. Candidato P1: Ridge Regression
+    # Candidato P1: Ridge Regression
     num_cols = [
         'lag_1d',
         'lag_7d',
@@ -166,60 +169,59 @@ def run_p1_experiments() -> None:
     ]
     cat_cols = ['zone']
 
-    with mlflow.start_run(run_name='p1-candidate-ridge-regression', nested=True):
-        params, tags = common_params_and_tags('P1', 'candidate', 'RidgeRegression')
-        params['horizon'] = '1_day'
-        params['granularity'] = 'station_day'
-        params['alpha'] = 1.0
-        mlflow.log_params(params)
-        mlflow.set_tags(tags)
+    params, tags = common_params_and_tags('P1', 'candidate', 'RidgeRegression')
+    params['horizon'] = '1_day'
+    params['granularity'] = 'station_day'
+    params.update(hparams)
+    mlflow.log_params(params)
+    mlflow.set_tags(tags)
 
-        pipe = Pipeline(
-            [
-                (
-                    'prep',
-                    ColumnTransformer(
-                        [
-                            ('num', StandardScaler(), num_cols),
-                            ('cat', OneHotEncoder(handle_unknown='ignore'), cat_cols),
-                        ]
-                    ),
+    pipe = Pipeline(
+        [
+            (
+                'prep',
+                ColumnTransformer(
+                    [
+                        ('num', StandardScaler(), num_cols),
+                        ('cat', OneHotEncoder(handle_unknown='ignore'), cat_cols),
+                    ]
                 ),
-                ('reg', Ridge(alpha=1.0, random_state=RANDOM_SEED)),
-            ]
-        )
-        pipe.fit(train_df[num_cols + cat_cols], train_df['trips_count'])
-        val_pred = pipe.predict(val_df[num_cols + cat_cols])
-        test_pred = pipe.predict(test_df[num_cols + cat_cols])
+            ),
+            ('reg', Ridge(alpha=hparams['alpha'], random_state=RANDOM_SEED)),
+        ]
+    )
+    pipe.fit(train_df[num_cols + cat_cols], train_df['trips_count'])
+    val_pred = pipe.predict(val_df[num_cols + cat_cols])
+    test_pred = pipe.predict(test_df[num_cols + cat_cols])
 
-        metrics = {
-            **regression_metrics(val_df['trips_count'].values, val_pred, 'val'),
-            **regression_metrics(test_df['trips_count'].values, test_pred, 'test'),
-        }
-        mlflow.log_metrics(metrics)
+    metrics = {
+        **regression_metrics(val_df['trips_count'].values, val_pred, 'val'),
+        **regression_metrics(test_df['trips_count'].values, test_pred, 'test'),
+    }
+    mlflow.log_metrics(metrics)
 
-        fig_path = FIGURES_DIR / 'p1_candidate_ridge_predictions.png'
-        daily = (
-            test_df.assign(
-                pred_base=test_df['lag_7d'],
-                pred_ridge=np.clip(test_pred, 0.0, None),
-            )
-            .groupby('date')[['trips_count', 'pred_base', 'pred_ridge']]
-            .sum()
+    fig_path = FIGURES_DIR / 'p1_candidate_ridge_predictions.png'
+    daily = (
+        test_df.assign(
+            pred_base=test_df['lag_7d'],
+            pred_ridge=np.clip(test_pred, 0.0, None),
         )
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.plot(daily.index, daily['trips_count'], label='Real (Test)', color='black')
-        ax.plot(daily.index, daily['pred_base'], label='Baseline (lag_7d)', color='#ff7f0e', linestyle='--', alpha=0.8)
-        ax.plot(daily.index, daily['pred_ridge'], label='Candidato (Ridge)', color='#1f77b4')
-        ax.set_title('P1 Comparación en Test: Real vs. Baseline y Ridge Regression')
-        ax.set_ylabel('Viajes por día')
-        ax.legend()
-        ax.grid(alpha=0.3)
-        plt.tight_layout()
-        fig.savefig(fig_path, dpi=120)
-        plt.close(fig)
-        mlflow.log_artifact(str(fig_path))
-        logger.info(f'P1 Candidato Ridge registrado: {metrics}')
+        .groupby('date')[['trips_count', 'pred_base', 'pred_ridge']]
+        .sum()
+    )
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(daily.index, daily['trips_count'], label='Real (Test)', color='black')
+    ax.plot(daily.index, daily['pred_base'], label='Baseline (lag_7d)', color='#ff7f0e', linestyle='--', alpha=0.8)
+    ax.plot(daily.index, daily['pred_ridge'], label='Candidato (Ridge)', color='#1f77b4')
+    ax.set_title('P1 Comparación en Test: Real vs. Baseline y Ridge Regression')
+    ax.set_ylabel('Viajes por día')
+    ax.legend()
+    ax.grid(alpha=0.3)
+    plt.tight_layout()
+    fig.savefig(fig_path, dpi=120)
+    plt.close(fig)
+    mlflow.log_artifact(str(fig_path))
+    logger.info(f'P1 Candidato Ridge registrado: {metrics}')
 
 
 def classification_metrics(y_true: pd.Series, y_pred: np.ndarray | pd.Series, prefix: str) -> dict[str, float]:
@@ -230,8 +232,8 @@ def classification_metrics(y_true: pd.Series, y_pred: np.ndarray | pd.Series, pr
     }
 
 
-def run_p2_experiments() -> None:
-    """Ejecuta y registra en MLflow el baseline y modelo candidato de P2 (Clasificación)."""
+def run_p2(model: str, hparams: dict) -> None:
+    """Entrena y registra en la corrida activa el baseline o el candidato de P2 (Clasificación)."""
     df = pd.read_parquet(P2_FEATURES_PATH)
     train_df = df[df['split'] == 'train'].copy()
     val_df = df[df['split'] == 'val'].copy()
@@ -240,8 +242,8 @@ def run_p2_experiments() -> None:
     labels_order = ['deficit', 'balanceado', 'excedente']
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 1. Baseline P2: Misma clase observada hace 7 días (168 horas)
-    with mlflow.start_run(run_name='p2-baseline-weekly-rule', nested=True):
+    # Baseline P2: Misma clase observada hace 7 días (168 horas)
+    if model == 'baseline':
         params, tags = common_params_and_tags('P2', 'baseline', 'WeeklyRule_lag168h')
         params['horizon'] = '3_hours'
         params['pressure_threshold'] = 0.30
@@ -264,8 +266,9 @@ def run_p2_experiments() -> None:
         plt.close(fig)
         mlflow.log_artifact(str(fig_path))
         logger.info(f'P2 Baseline registrado: {metrics}')
+        return
 
-    # 2. Candidato P2: HistGradientBoostingClassifier
+    # Candidato P2: HistGradientBoostingClassifier
     feature_cols = [
         'hour',
         'day_of_week',
@@ -280,43 +283,39 @@ def run_p2_experiments() -> None:
         'capacity',
     ]
 
-    with mlflow.start_run(run_name='p2-candidate-hist-gradient-boosting', nested=True):
-        params, tags = common_params_and_tags('P2', 'candidate', 'HistGradientBoostingClassifier')
-        params['horizon'] = '3_hours'
-        params['pressure_threshold'] = 0.30
-        params['max_iter'] = 150
-        params['learning_rate'] = 0.08
-        params['max_depth'] = 6
-        mlflow.log_params(params)
-        mlflow.set_tags(tags)
+    params, tags = common_params_and_tags('P2', 'candidate', 'HistGradientBoostingClassifier')
+    params['horizon'] = '3_hours'
+    params['pressure_threshold'] = 0.30
+    params.update(hparams)
+    mlflow.log_params(params)
+    mlflow.set_tags(tags)
 
-        clf = HistGradientBoostingClassifier(
-            max_iter=150, learning_rate=0.08, max_depth=6, random_state=RANDOM_SEED
-        )
-        clf.fit(train_df[feature_cols], train_df['risk_class'])
-        val_pred = clf.predict(val_df[feature_cols])
-        test_pred = clf.predict(test_df[feature_cols])
+    clf = HistGradientBoostingClassifier(**hparams, random_state=RANDOM_SEED)
+    clf.fit(train_df[feature_cols], train_df['risk_class'])
+    val_pred = clf.predict(val_df[feature_cols])
+    test_pred = clf.predict(test_df[feature_cols])
 
-        metrics = {
-            **classification_metrics(val_df['risk_class'], val_pred, 'val'),
-            **classification_metrics(test_df['risk_class'], test_pred, 'test'),
-        }
-        mlflow.log_metrics(metrics)
+    metrics = {
+        **classification_metrics(val_df['risk_class'], val_pred, 'val'),
+        **classification_metrics(test_df['risk_class'], test_pred, 'test'),
+    }
+    mlflow.log_metrics(metrics)
 
-        fig_path = FIGURES_DIR / 'p2_candidate_hgb_confusion_matrix.png'
-        fig, ax = plt.subplots(figsize=(6, 5))
-        cm = confusion_matrix(test_df['risk_class'], test_pred, labels=labels_order)
-        ConfusionMatrixDisplay(cm, display_labels=labels_order).plot(ax=ax, cmap='Greens', colorbar=False)
-        ax.set_title('P2 HistGradientBoosting - Matriz de Confusión (Test)')
-        plt.tight_layout()
-        fig.savefig(fig_path, dpi=120)
-        plt.close(fig)
-        mlflow.log_artifact(str(fig_path))
-        logger.info(f'P2 Candidato HGB registrado: {metrics}')
+    fig_path = FIGURES_DIR / 'p2_candidate_hgb_confusion_matrix.png'
+    fig, ax = plt.subplots(figsize=(6, 5))
+    cm = confusion_matrix(test_df['risk_class'], test_pred, labels=labels_order)
+    ConfusionMatrixDisplay(cm, display_labels=labels_order).plot(ax=ax, cmap='Greens', colorbar=False)
+    ax.set_title('P2 HistGradientBoosting - Matriz de Confusión (Test)')
+    plt.tight_layout()
+    fig.savefig(fig_path, dpi=120)
+    plt.close(fig)
+    mlflow.log_artifact(str(fig_path))
+    logger.info(f'P2 Candidato HGB registrado: {metrics}')
 
 
-def run_p3_experiments(n_clusters: int = 4) -> None:
-    """Ejecuta y registra en MLflow el baseline geográfico y el clustering de uso para P3."""
+def run_p3(model: str, hparams: dict) -> None:
+    """Entrena y registra en la corrida activa el baseline geográfico o el clustering de uso de P3."""
+    n_clusters = hparams['n_clusters']
     prof_train = pd.read_parquet(P3_TRAIN_FEATURES_PATH)
     prof_holdout = pd.read_parquet(P3_HOLDOUT_FEATURES_PATH)
 
@@ -334,13 +333,13 @@ def run_p3_experiments(n_clusters: int = 4) -> None:
     usage_scaler = StandardScaler()
     X_train_usage = usage_scaler.fit_transform(prof_train[usage_cols])
 
-    geo_scaler = StandardScaler()
-    X_train_geo = geo_scaler.fit_transform(prof_train[['latitude', 'longitude']])
-
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 1. Baseline P3: K-Means Geográfico (latitud y longitud)
-    with mlflow.start_run(run_name='p3-baseline-kmeans-geo', nested=True):
+    # Baseline P3: K-Means Geográfico (latitud y longitud)
+    if model == 'baseline':
+        geo_scaler = StandardScaler()
+        X_train_geo = geo_scaler.fit_transform(prof_train[['latitude', 'longitude']])
+
         params, tags = common_params_and_tags('P3', 'baseline', 'KMeans_Geographic')
         params['n_clusters'] = n_clusters
         params['features'] = 'latitude,longitude'
@@ -373,112 +372,143 @@ def run_p3_experiments(n_clusters: int = 4) -> None:
         plt.close(fig)
         mlflow.log_artifact(str(fig_path))
         logger.info(f'P3 Baseline Geográfico registrado: {metrics}')
+        return
 
-    # 2. Candidato P3: K-Means sobre Perfil de Uso
-    with mlflow.start_run(run_name='p3-candidate-kmeans-usage', nested=True):
-        params, tags = common_params_and_tags('P3', 'candidate', 'KMeans_UsageProfile')
-        params['n_clusters'] = n_clusters
-        params['features'] = ','.join(usage_cols)
-        mlflow.log_params(params)
-        mlflow.set_tags(tags)
+    # Candidato P3: K-Means sobre Perfil de Uso
+    params, tags = common_params_and_tags('P3', 'candidate', 'KMeans_UsageProfile')
+    params['n_clusters'] = n_clusters
+    params['features'] = ','.join(usage_cols)
+    mlflow.log_params(params)
+    mlflow.set_tags(tags)
 
-        km_usage = KMeans(n_clusters=n_clusters, random_state=RANDOM_SEED, n_init=10)
-        labels_usage = km_usage.fit_predict(X_train_usage)
+    km_usage = KMeans(n_clusters=n_clusters, random_state=RANDOM_SEED, n_init=10)
+    labels_usage = km_usage.fit_predict(X_train_usage)
 
-        common = prof_train[['station_id']].assign(c_train=labels_usage).merge(
-            prof_holdout, on='station_id', how='inner'
+    common = prof_train[['station_id']].assign(c_train=labels_usage).merge(
+        prof_holdout, on='station_id', how='inner'
+    )
+    X_holdout_usage = usage_scaler.transform(common[usage_cols])
+    labels_holdout = KMeans(
+        n_clusters=n_clusters, random_state=RANDOM_SEED, n_init=10
+    ).fit_predict(X_holdout_usage)
+
+    metrics = {
+        'train_silhouette_usage': round(float(silhouette_score(X_train_usage, labels_usage)), 4),
+        'train_davies_bouldin_usage': round(float(davies_bouldin_score(X_train_usage, labels_usage)), 4),
+        'holdout_ari_stability': round(float(adjusted_rand_score(common['c_train'], labels_holdout)), 4),
+    }
+    mlflow.log_metrics(metrics)
+
+    pca_coords = PCA(n_components=2, random_state=RANDOM_SEED).fit_transform(X_train_usage)
+    fig_path = FIGURES_DIR / 'p3_candidate_usage_clusters_map.png'
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    for c in range(n_clusters):
+        mask = labels_usage == c
+        axes[0].scatter(pca_coords[mask, 0], pca_coords[mask, 1], label=f'Cluster {c}', alpha=0.75, s=28)
+        axes[1].scatter(
+            prof_train.loc[mask, 'longitude'],
+            prof_train.loc[mask, 'latitude'],
+            label=f'Cluster {c}',
+            alpha=0.75,
+            s=28,
         )
-        X_holdout_usage = usage_scaler.transform(common[usage_cols])
-        labels_holdout = KMeans(
-            n_clusters=n_clusters, random_state=RANDOM_SEED, n_init=10
-        ).fit_predict(X_holdout_usage)
+    axes[0].set_title(f'P3 Perfil de Uso: Proyección PCA 2D (k={n_clusters})')
+    axes[0].set_xlabel('PCA 1')
+    axes[0].set_ylabel('PCA 2')
+    axes[0].legend()
+    axes[0].grid(alpha=0.3)
 
-        metrics = {
-            'train_silhouette_usage': round(float(silhouette_score(X_train_usage, labels_usage)), 4),
-            'train_davies_bouldin_usage': round(float(davies_bouldin_score(X_train_usage, labels_usage)), 4),
-            'holdout_ari_stability': round(float(adjusted_rand_score(common['c_train'], labels_holdout)), 4),
-        }
-        mlflow.log_metrics(metrics)
+    axes[1].set_title(f'P3 Perfil de Uso: Mapa de Estaciones en AMG (k={n_clusters})')
+    axes[1].set_xlabel('Longitud')
+    axes[1].set_ylabel('Latitud')
+    axes[1].legend()
+    axes[1].grid(alpha=0.3)
 
-        pca_coords = PCA(n_components=2, random_state=RANDOM_SEED).fit_transform(X_train_usage)
-        fig_path = FIGURES_DIR / 'p3_candidate_usage_clusters_map.png'
-        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-        for c in range(n_clusters):
-            mask = labels_usage == c
-            axes[0].scatter(pca_coords[mask, 0], pca_coords[mask, 1], label=f'Cluster {c}', alpha=0.75, s=28)
-            axes[1].scatter(
-                prof_train.loc[mask, 'longitude'],
-                prof_train.loc[mask, 'latitude'],
-                label=f'Cluster {c}',
-                alpha=0.75,
-                s=28,
-            )
-        axes[0].set_title(f'P3 Perfil de Uso: Proyección PCA 2D (k={n_clusters})')
-        axes[0].set_xlabel('PCA 1')
-        axes[0].set_ylabel('PCA 2')
-        axes[0].legend()
-        axes[0].grid(alpha=0.3)
+    plt.tight_layout()
+    fig.savefig(fig_path, dpi=120)
+    plt.close(fig)
+    mlflow.log_artifact(str(fig_path))
+    logger.info(f'P3 Candidato Perfil de Uso registrado: {metrics}')
 
-        axes[1].set_title(f'P3 Perfil de Uso: Mapa de Estaciones en AMG (k={n_clusters})')
-        axes[1].set_xlabel('Longitud')
-        axes[1].set_ylabel('Latitud')
-        axes[1].legend()
-        axes[1].grid(alpha=0.3)
 
-        plt.tight_layout()
-        fig.savefig(fig_path, dpi=120)
-        plt.close(fig)
-        mlflow.log_artifact(str(fig_path))
-        logger.info(f'P3 Candidato Perfil de Uso registrado: {metrics}')
+RUNNERS = {'p1': run_p1, 'p2': run_p2, 'p3': run_p3}
+
+
+def resolve_hyperparams(question: str, model: str, overrides: dict[str, str]) -> dict:
+    """Combina los hiperparámetros de MODEL_DEFAULTS con los argumentos recibidos."""
+    models = MODEL_DEFAULTS[question]
+    if model not in models:
+        raise typer.BadParameter(
+            f'El modelo {model!r} no existe para {question}. Opciones: {", ".join(models)}'
+        )
+
+    hparams = dict(models[model])
+    for name, value in overrides.items():
+        if value == '':
+            continue
+        if name not in hparams:
+            raise typer.BadParameter(f'{name} no aplica al modelo {model!r} de {question}')
+        try:
+            hparams[name] = type(hparams[name])(value)
+        except ValueError as error:
+            raise typer.BadParameter(f'Valor inválido para {name}: {value!r}') from error
+    return hparams
 
 
 @app.command()
 def main(
-    question: str = typer.Option("all",help="Pregunta a ejecutar: p1, p2, p3 o all"),
-    tracking_uri: str = typer.Option("http://127.0.0.1:5000", help='URI de MLflow Tracking'),
+    question: str = typer.Option('p1', help='Pregunta a ejecutar: p1, p2 o p3'),
+    model: str = typer.Option('baseline', help='Modelo definido en MODEL_DEFAULTS de config.py'),
+    alpha: str = typer.Option('', help='Ridge (P1). Vacío = valor de config.py'),
+    max_iter: str = typer.Option('', help='HistGradientBoosting (P2). Vacío = valor de config.py'),
+    learning_rate: str = typer.Option('', help='HistGradientBoosting (P2). Vacío = valor de config.py'),
+    max_depth: str = typer.Option('', help='HistGradientBoosting (P2). Vacío = valor de config.py'),
+    n_clusters: str = typer.Option('', help='K-Means (P3). Vacío = valor de config.py'),
 ):
-    """Ejecuta los experimentos base y candidatos de P1, P2 y P3 registrándolos en MLflow."""
-    mlflow.set_tracking_uri(tracking_uri)
-    mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
-    logger.info(f'MLflow Tracking URI: {tracking_uri} | Experimento: {MLFLOW_EXPERIMENT_NAME}')
-
+    """Entrena un modelo de P1, P2 o P3 y lo registra como una corrida en MLflow."""
     question = question.lower()
-    
-    if question not in ["p1", "p2", "p3", "all"]:
-        raise typer.BadParameter(
-            "La pregunta debe ser p1, p2, p3 o all."
-        )
+    model = model.lower()
+    if question not in RUNNERS:
+        raise typer.BadParameter(f'La pregunta debe ser una de: {", ".join(RUNNERS)}')
 
-    # MLflow Projects crea una corrida principal automáticamente.
-    project_run_id = os.environ.pop("MLFLOW_RUN_ID", None)
+    hparams = resolve_hyperparams(
+        question,
+        model,
+        {
+            'alpha': alpha,
+            'max_iter': max_iter,
+            'learning_rate': learning_rate,
+            'max_depth': max_depth,
+            'n_clusters': n_clusters,
+        },
+    )
 
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+
+    project_run_id = os.environ.get('MLFLOW_RUN_ID')
     if project_run_id:
-        logger.info(f"Corrida principal de MLflow Project: {project_run_id}")
-
-        # Reutilizar la corrida principal únicamente como padre.
-        with mlflow.start_run(run_id=project_run_id):
-            mlflow.set_tag("execution_type", "mlflow_project")
-
-            if question in ["p1", "all"]:
-                run_p1_experiments()
-
-            if question in ["p2", "all"]:
-                run_p2_experiments()
-
-            if question in ["p3", "all"]:
-                run_p3_experiments()
-
+        experiment_id = mlflow.get_run(project_run_id).info.experiment_id
+        experiment_name = mlflow.get_experiment(experiment_id).name
+        if experiment_name != MLFLOW_EXPERIMENT_NAME:
+            logger.error(
+                f'La corrida se creó en el experimento {experiment_name!r}. '
+                f'Ejecuta mlflow run con --experiment-name {MLFLOW_EXPERIMENT_NAME}'
+            )
+            raise typer.Exit(code=1)
     else:
-        # Permitir también la ejecución directa con Python.
-        if question in ["p1", "all"]:
-            run_p1_experiments()
+        mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
-        if question in ["p2", "all"]:
-            run_p2_experiments()
+    run_name = f'{question}-baseline' if model == 'baseline' else f'{question}-candidate-{model}'
+    logger.info(
+        f'MLflow Tracking URI: {MLFLOW_TRACKING_URI} | Experimento: {MLFLOW_EXPERIMENT_NAME} | '
+        f'Corrida: {run_name} | Hiperparámetros: {hparams}'
+    )
 
-        if question in ["p3", "all"]:
-            run_p3_experiments()
-    logger.success(f"Experimentos de {question} finalizados.")
+    # Retomar un run
+    with mlflow.start_run(run_name=run_name):
+        RUNNERS[question](model, hparams)
+
+    logger.success(f'Corrida {run_name} registrada en MLflow.')
 
 
 if __name__ == '__main__':

@@ -78,7 +78,10 @@ MODELS = $(shell $(PYTHON_INTERPRETER) -c "from mi_bici.config import MODEL_DEFA
 	print(' '.join(f'{q}:{m}' for q in d for m in d[q]))")
 
 # `mlflow run` toma el servidor de esta variable
-export MLFLOW_TRACKING_URI ?= $(call CONFIG,MLFLOW_TRACKING_URI)
+ifndef MLFLOW_TRACKING_URI
+MLFLOW_TRACKING_URI := $(call CONFIG,MLFLOW_TRACKING_URI)
+endif
+export MLFLOW_TRACKING_URI
 
 # Entorno de `mlflow run`. uv (aislado, desde python_env.yaml) o local (entorno activo)
 ENV_MANAGER ?= uv

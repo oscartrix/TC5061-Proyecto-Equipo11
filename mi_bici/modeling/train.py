@@ -7,6 +7,7 @@ Uso:
 import json
 from pathlib import Path
 import subprocess
+import os
 
 from loguru import logger
 import matplotlib.pyplot as plt
@@ -122,7 +123,7 @@ def run_p1_experiments() -> None:
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
     # 1. Baseline P1: Seasonal Naive (mismo día de la semana anterior = lag_7d)
-    with mlflow.start_run(run_name='p1-baseline-seasonal-naive'):
+    with mlflow.start_run(run_name='p1-baseline-seasonal-naive', nested=True):
         params, tags = common_params_and_tags('P1', 'baseline', 'SeasonalNaive_lag7d')
         params['horizon'] = '1_day'
         params['granularity'] = 'station_day'
@@ -165,7 +166,7 @@ def run_p1_experiments() -> None:
     ]
     cat_cols = ['zone']
 
-    with mlflow.start_run(run_name='p1-candidate-ridge-regression'):
+    with mlflow.start_run(run_name='p1-candidate-ridge-regression', nested=True):
         params, tags = common_params_and_tags('P1', 'candidate', 'RidgeRegression')
         params['horizon'] = '1_day'
         params['granularity'] = 'station_day'
@@ -240,7 +241,7 @@ def run_p2_experiments() -> None:
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
     # 1. Baseline P2: Misma clase observada hace 7 días (168 horas)
-    with mlflow.start_run(run_name='p2-baseline-weekly-rule'):
+    with mlflow.start_run(run_name='p2-baseline-weekly-rule', nested=True):
         params, tags = common_params_and_tags('P2', 'baseline', 'WeeklyRule_lag168h')
         params['horizon'] = '3_hours'
         params['pressure_threshold'] = 0.30
@@ -279,7 +280,7 @@ def run_p2_experiments() -> None:
         'capacity',
     ]
 
-    with mlflow.start_run(run_name='p2-candidate-hist-gradient-boosting'):
+    with mlflow.start_run(run_name='p2-candidate-hist-gradient-boosting', nested=True):
         params, tags = common_params_and_tags('P2', 'candidate', 'HistGradientBoostingClassifier')
         params['horizon'] = '3_hours'
         params['pressure_threshold'] = 0.30
@@ -339,7 +340,7 @@ def run_p3_experiments(n_clusters: int = 4) -> None:
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
     # 1. Baseline P3: K-Means Geográfico (latitud y longitud)
-    with mlflow.start_run(run_name='p3-baseline-kmeans-geo'):
+    with mlflow.start_run(run_name='p3-baseline-kmeans-geo', nested=True):
         params, tags = common_params_and_tags('P3', 'baseline', 'KMeans_Geographic')
         params['n_clusters'] = n_clusters
         params['features'] = 'latitude,longitude'
@@ -374,7 +375,7 @@ def run_p3_experiments(n_clusters: int = 4) -> None:
         logger.info(f'P3 Baseline Geográfico registrado: {metrics}')
 
     # 2. Candidato P3: K-Means sobre Perfil de Uso
-    with mlflow.start_run(run_name='p3-candidate-kmeans-usage'):
+    with mlflow.start_run(run_name='p3-candidate-kmeans-usage', nested=True):
         params, tags = common_params_and_tags('P3', 'candidate', 'KMeans_UsageProfile')
         params['n_clusters'] = n_clusters
         params['features'] = ','.join(usage_cols)
@@ -433,17 +434,51 @@ def run_p3_experiments(n_clusters: int = 4) -> None:
 
 @app.command()
 def main(
-    tracking_uri: str = typer.Option(MLFLOW_TRACKING_URI, help='URI de MLflow Tracking'),
+    question: str = typer.Option("all",help="Pregunta a ejecutar: p1, p2, p3 o all"),
+    tracking_uri: str = typer.Option("http://127.0.0.1:5000", help='URI de MLflow Tracking'),
 ):
     """Ejecuta los experimentos base y candidatos de P1, P2 y P3 registrándolos en MLflow."""
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
     logger.info(f'MLflow Tracking URI: {tracking_uri} | Experimento: {MLFLOW_EXPERIMENT_NAME}')
 
-    run_p1_experiments()
-    run_p2_experiments()
-    run_p3_experiments()
-    logger.success('Todos los runs de P1, P2 y P3 se registraron correctamente en MLflow.')
+    question = question.lower()
+    
+    if question not in ["p1", "p2", "p3", "all"]:
+        raise typer.BadParameter(
+            "La pregunta debe ser p1, p2, p3 o all."
+        )
+
+    # MLflow Projects crea una corrida principal automáticamente.
+    project_run_id = os.environ.pop("MLFLOW_RUN_ID", None)
+
+    if project_run_id:
+        logger.info(f"Corrida principal de MLflow Project: {project_run_id}")
+
+        # Reutilizar la corrida principal únicamente como padre.
+        with mlflow.start_run(run_id=project_run_id):
+            mlflow.set_tag("execution_type", "mlflow_project")
+
+            if question in ["p1", "all"]:
+                run_p1_experiments()
+
+            if question in ["p2", "all"]:
+                run_p2_experiments()
+
+            if question in ["p3", "all"]:
+                run_p3_experiments()
+
+    else:
+        # Permitir también la ejecución directa con Python.
+        if question in ["p1", "all"]:
+            run_p1_experiments()
+
+        if question in ["p2", "all"]:
+            run_p2_experiments()
+
+        if question in ["p3", "all"]:
+            run_p3_experiments()
+    logger.success(f"Experimentos de {question} finalizados.")
 
 
 if __name__ == '__main__':

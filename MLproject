@@ -11,7 +11,11 @@ entry_points:
     command: "python -m mi_bici.features"
 
   train:
-    command: "python -m mi_bici.modeling.train"
+    parameters:
+      question:
+        type: str
+        default: "all"
+    command: "python -m mi_bici.modeling.train --question {question} --tracking-uri http://127.0.0.1:5000"
 
   main:
     command: "python -m mi_bici.dataset && python -m mi_bici.features && python -m mi_bici.modeling.train"

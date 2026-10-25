@@ -29,6 +29,7 @@ data/external/**
 mlflow.db
 mlflow.db-shm
 mlflow.db-wal
+mlflow.db-*
 
 # MLflow runs and artifacts
 mlruns/

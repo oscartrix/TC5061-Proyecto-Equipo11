@@ -83,7 +83,7 @@ def get_data_version() -> str:
 def common_params_and_tags(question: str, role: str, model_type: str) -> tuple[dict, dict]:
     """Parámetros de reproducción y etiquetas comunes a todos los runs."""
     params = {
-        'question': question,
+        'question': question.lower(),
         'role': role,
         'model_type': model_type,
         'start_month': START_MONTH,
@@ -172,7 +172,6 @@ def run_p1(model: str, hparams: dict) -> None:
     params, tags = common_params_and_tags('P1', 'candidate', 'RidgeRegression')
     params['horizon'] = '1_day'
     params['granularity'] = 'station_day'
-    params.update(hparams)
     mlflow.log_params(params)
     mlflow.set_tags(tags)
 
@@ -286,7 +285,6 @@ def run_p2(model: str, hparams: dict) -> None:
     params, tags = common_params_and_tags('P2', 'candidate', 'HistGradientBoostingClassifier')
     params['horizon'] = '3_hours'
     params['pressure_threshold'] = 0.30
-    params.update(hparams)
     mlflow.log_params(params)
     mlflow.set_tags(tags)
 
@@ -341,7 +339,6 @@ def run_p3(model: str, hparams: dict) -> None:
         X_train_geo = geo_scaler.fit_transform(prof_train[['latitude', 'longitude']])
 
         params, tags = common_params_and_tags('P3', 'baseline', 'KMeans_Geographic')
-        params['n_clusters'] = n_clusters
         params['features'] = 'latitude,longitude'
         mlflow.log_params(params)
         mlflow.set_tags(tags)
@@ -376,7 +373,6 @@ def run_p3(model: str, hparams: dict) -> None:
 
     # Candidato P3: K-Means sobre Perfil de Uso
     params, tags = common_params_and_tags('P3', 'candidate', 'KMeans_UsageProfile')
-    params['n_clusters'] = n_clusters
     params['features'] = ','.join(usage_cols)
     mlflow.log_params(params)
     mlflow.set_tags(tags)
@@ -434,6 +430,22 @@ def run_p3(model: str, hparams: dict) -> None:
 RUNNERS = {'p1': run_p1, 'p2': run_p2, 'p3': run_p3}
 
 
+def parse_hyperparam_args(args: list[str]) -> dict[str, str]:
+    """Convertir los -P extra de mlflow run (--alpha 0.5) en {'alpha': '0.5'}."""
+    overrides = {}
+    tokens = iter(args)
+    for token in tokens:
+        if not token.startswith('--'):
+            raise typer.BadParameter(f'Argumento no válido: {token!r}')
+        name, sep, value = token[2:].partition('=')
+        if not sep:
+            value = next(tokens, None)
+            if value is None:
+                raise typer.BadParameter(f'Falta el valor de --{name}')
+        overrides[name] = value
+    return overrides
+
+
 def resolve_hyperparams(question: str, model: str, overrides: dict[str, str]) -> dict:
     """Combina los hiperparámetros de MODEL_DEFAULTS con los argumentos recibidos."""
     models = MODEL_DEFAULTS[question]
@@ -444,10 +456,12 @@ def resolve_hyperparams(question: str, model: str, overrides: dict[str, str]) ->
 
     hparams = dict(models[model])
     for name, value in overrides.items():
-        if value == '':
-            continue
         if name not in hparams:
-            raise typer.BadParameter(f'{name} no aplica al modelo {model!r} de {question}')
+            valid = ', '.join(hparams) or 'ninguno'
+            raise typer.BadParameter(
+                f'{name!r} no aplica al modelo {model!r} de {question}. '
+                f'Hiperparámetros válidos: {valid}'
+            )
         try:
             hparams[name] = type(hparams[name])(value)
         except ValueError as error:
@@ -455,33 +469,41 @@ def resolve_hyperparams(question: str, model: str, overrides: dict[str, str]) ->
     return hparams
 
 
-@app.command()
+def log_hyperparams(question: str, model: str, hparams: dict, overrides: dict[str, str]) -> None:
+    """Registra en MLflow la pregunta, el modelo y los hiperparámetros usados."""
+    mlflow.log_params({'question': question, 'model': model, **hparams, **overrides})
+
+
+def format_models() -> str:
+    """Lista los modelos de MODEL_DEFAULTS con sus hiperparámetros por default."""
+    lines = []
+    for question, models in MODEL_DEFAULTS.items():
+        lines.append(question)
+        for model, hparams in models.items():
+            values = ', '.join(f'{name}={value}' for name, value in hparams.items())
+            lines.append(f'  {model}: {values or "(sin hiperparámetros)"}')
+    return '\n'.join(lines)
+
+
+@app.command(context_settings={'allow_extra_args': True, 'ignore_unknown_options': True})
 def main(
+    ctx: typer.Context,
     question: str = typer.Option('p1', help='Pregunta a ejecutar: p1, p2 o p3'),
     model: str = typer.Option('baseline', help='Modelo definido en MODEL_DEFAULTS de config.py'),
-    alpha: str = typer.Option('', help='Ridge (P1). Vacío = valor de config.py'),
-    max_iter: str = typer.Option('', help='HistGradientBoosting (P2). Vacío = valor de config.py'),
-    learning_rate: str = typer.Option('', help='HistGradientBoosting (P2). Vacío = valor de config.py'),
-    max_depth: str = typer.Option('', help='HistGradientBoosting (P2). Vacío = valor de config.py'),
-    n_clusters: str = typer.Option('', help='K-Means (P3). Vacío = valor de config.py'),
+    list_models: bool = typer.Option(
+        False, '--list-models', help='Muestra los modelos y sus hiperparámetros por default'
+    ),
 ):
     """Entrena un modelo de P1, P2 o P3 y lo registra como una corrida en MLflow."""
-    question = question.lower()
-    model = model.lower()
+    if list_models:
+        typer.echo(format_models())
+        raise typer.Exit()
+
     if question not in RUNNERS:
         raise typer.BadParameter(f'La pregunta debe ser una de: {", ".join(RUNNERS)}')
 
-    hparams = resolve_hyperparams(
-        question,
-        model,
-        {
-            'alpha': alpha,
-            'max_iter': max_iter,
-            'learning_rate': learning_rate,
-            'max_depth': max_depth,
-            'n_clusters': n_clusters,
-        },
-    )
+    overrides = parse_hyperparam_args(ctx.args)
+    hparams = resolve_hyperparams(question, model, overrides)
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
@@ -506,6 +528,7 @@ def main(
 
     # Retomar un run
     with mlflow.start_run(run_name=run_name):
+        log_hyperparams(question, model, hparams, overrides)
         RUNNERS[question](model, hparams)
 
     logger.success(f'Corrida {run_name} registrada en MLflow.')

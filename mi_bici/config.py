@@ -99,6 +99,16 @@ SELECTION_METRICS = {
     'p3': ('train_silhouette_usage', 'max'),
 }
 
+# Estabilidad mínima (ARI contra 2026) para que un clustering de P3 pueda ser champion
+P3_MIN_STABILITY = 0.4
+
+# Nombres en el Model Registry y qué predice cada modelo
+REGISTERED_MODELS = {
+    'p1': ('mibici-equipo11-p1-demanda', 'Viajes de salida por estación al día siguiente (regresión)'),
+    'p2': ('mibici-equipo11-p2-riesgo', 'Riesgo de déficit, balance o excedente de bicis en las próximas 3 horas (clasificación)'),
+    'p3': ('mibici-equipo11-p3-grupos', 'Grupos de estaciones por perfil de uso (clustering)'),
+}
+
 try:
     from tqdm import tqdm
 

@@ -21,12 +21,18 @@ entry_points:
       question: {type: str, default: "p1"}
       model: {type: str, default: "baseline"}
     command: "python -m mi_bici.modeling.train --question {question} --model {model}"
-  
+
+  # Búsqueda con nested runs sobre SEARCH_GRIDS de config.py
   search:
     parameters:
       question: {type: str, default: "p1"}
       model: {type: str, default: "ridge"}
     command: "python -m mi_bici.modeling.search --question {question} --model {model}"
+
+  register:
+    parameters:
+      question: {type: str, default: "p1"}
+    command: "python -m mi_bici.modeling.register --question {question}"
 
   main:
     command: "python -m mi_bici.dataset && python -m mi_bici.features"

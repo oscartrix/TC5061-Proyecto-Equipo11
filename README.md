@@ -201,7 +201,7 @@ Los espacios de búsqueda se encuentran centralizados en `mi_bici/config.py`, me
 
 Con el entorno virtual activado y el servidor de MLflow disponible en `http://127.0.0.1:5000`, ejecutar desde la raíz del repositorio:
 
-**P1 — Predicción de demanda (Ridge)**
+**Pregunta 1. Predicción de demanda (Ridge)**
 
 ```powershell
 python -m mi_bici.modeling.search --question p1 --model ridge
@@ -209,7 +209,7 @@ python -m mi_bici.modeling.search --question p1 --model ridge
 
 Se evalúan 6 configuraciones de `alpha`, seleccionando aquella con menor `val_mae`.
 
-**P2 — Clasificación (HistGradientBoosting)**
+**Pregunta 2 — Clasificación (HistGradientBoosting)**
 
 ```powershell
 python -m mi_bici.modeling.search --question p2 --model hgb
@@ -217,7 +217,7 @@ python -m mi_bici.modeling.search --question p2 --model hgb
 
 Se evalúan 12 combinaciones de `max_iter`, `learning_rate` y `max_depth`, seleccionando la configuración con mayor `val_f1_macro`.
 
-**P3 — Agrupamiento (KMeans)**
+**Pregunta 3 — Agrupamiento (KMeans)**
 
 ```powershell
 python -m mi_bici.modeling.search --question p3 --model kmeans_usage

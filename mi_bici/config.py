@@ -64,6 +64,27 @@ MODEL_DEFAULTS = {
     },
 }
 
+# Combinaciones de hiperparámetros para búsquedas con MLflow.
+SEARCH_GRIDS = {
+    "p1": {
+        "ridge": {
+            "alpha": [0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0],
+        },
+    },
+    "p2": {
+        "hgb": {
+            "max_iter": [100, 150, 200],
+            "learning_rate": [0.05, 0.08],
+            "max_depth": [4, 6],
+        },
+    },
+    "p3": {
+        "kmeans_usage": {
+            "n_clusters": [3, 4, 5, 6],
+        },
+    },
+}
+
 try:
     from tqdm import tqdm
 

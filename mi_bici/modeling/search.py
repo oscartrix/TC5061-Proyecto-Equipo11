@@ -6,14 +6,14 @@ para registrar una corrida padre y una hija por combinación.
 
 import mlflow
 import os
-from mi_bici.config import MLFLOW_EXPERIMENT_NAME, MLFLOW_TRACKING_URI
+from mi_bici.config import MLFLOW_EXPERIMENT_NAME, MLFLOW_TRACKING_URI, SEARCH_GRIDS
 from mi_bici.modeling.train import run_p1, run_p2, run_p3
 
 
 def search_p1_ridge():
     """Ejecuta una búsqueda de alpha para Ridge con nested runs."""
 
-    alpha_values = [0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0]
+    alpha_values = SEARCH_GRIDS["p1"]["ridge"]["alpha"]
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     #mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)

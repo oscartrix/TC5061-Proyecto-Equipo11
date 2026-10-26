@@ -21,6 +21,12 @@ entry_points:
       question: {type: str, default: "p1"}
       model: {type: str, default: "baseline"}
     command: "python -m mi_bici.modeling.train --question {question} --model {model}"
+  
+  search:
+    parameters:
+      question: {type: str, default: "p1"}
+      model: {type: str, default: "ridge"}
+    command: "python -m mi_bici.modeling.search --question {question} --model {model}"
 
   main:
     command: "python -m mi_bici.dataset && python -m mi_bici.features"

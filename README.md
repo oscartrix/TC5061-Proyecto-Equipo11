@@ -187,6 +187,62 @@ pytest
 ```
 
 ---
+## Búsqueda de hiperparámetros con MLflow
+
+El proyecto implementa búsquedas de hiperparámetros para las tres preguntas de investigación mediante **MLflow Nested Runs**.
+
+Cada búsqueda genera una ejecución padre (*parent run*) que agrupa las ejecuciones hijas (*child runs*), correspondientes a las diferentes configuraciones evaluadas.
+
+### Configuración
+
+Los espacios de búsqueda se encuentran centralizados en `mi_bici/config.py`, mediante el diccionario `SEARCH_GRIDS`.
+
+### Ejecución
+
+Con el entorno virtual activado y el servidor de MLflow disponible en `http://127.0.0.1:5000`, ejecutar desde la raíz del repositorio:
+
+**Pregunta 1. Predicción de demanda (Ridge)**
+
+```powershell
+python -m mi_bici.modeling.search --question p1 --model ridge
+```
+
+Se evalúan 6 configuraciones de `alpha`, seleccionando aquella con menor `val_mae`.
+
+**Pregunta 2 — Clasificación (HistGradientBoosting)**
+
+```powershell
+python -m mi_bici.modeling.search --question p2 --model hgb
+```
+
+Se evalúan 12 combinaciones de `max_iter`, `learning_rate` y `max_depth`, seleccionando la configuración con mayor `val_f1_macro`.
+
+**Pregunta 3 — Agrupamiento (KMeans)**
+
+```powershell
+python -m mi_bici.modeling.search --question p3 --model kmeans_usage
+```
+
+Se evalúan 4 valores de `n_clusters`. La implementación actual selecciona la configuración con mayor `holdout_ari_stability`, una métrica de estabilidad que debe interpretarse junto con silhouette y Davies-Bouldin.
+
+### Resultados registrados
+
+Cada búsqueda registra en MLflow:
+
+- Una ejecución padre con el resumen de la búsqueda.
+- Ejecuciones hijas con los hiperparámetros y métricas de cada configuración.
+- La mejor métrica obtenida y un archivo `best_hyperparameters.json`.
+- La referencia a la ejecución hija seleccionada mediante `best_child_run_id`.
+
+### Pruebas automatizadas
+
+Para verificar la generación de combinaciones y los criterios de comparación:
+
+```powershell
+python -m pytest tests/test_search.py -v
+```
+
+Estas pruebas no requieren ejecutar nuevamente los entrenamientos.
 
 ## 6. Buenas Prácticas Aplicadas
 

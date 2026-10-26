@@ -2,20 +2,37 @@ name: mibici-equipo11
 
 python_env: python_env.yaml
 
-# Fechas, rutas y URI de tracking se leen de mi_bici/config.py
+# Fechas, rutas, semillas, URI de tracking e hiperparámetros por default se leen de mi_bici/config.py.
 entry_points:
   ingest:
-    command: "python -m mi_bici.dataset"
+    parameters:
+      start: {type: str, default: ""}
+      end: {type: str, default: ""}
+    command: "python -m mi_bici.dataset --start {start} --end {end}"
 
   features:
     command: "python -m mi_bici.features"
 
+  # Hiperparámetros: -P <nombre>=<valor>, con los nombres de MODEL_DEFAULTS en config.py.
+  # Lista de modelos e hiperparámetros: python -m mi_bici.modeling.train --list-models
+  # Ejemplo: mlflow run . -e train -P question=p1 -P model=ridge -P alpha=0.5
   train:
     parameters:
-      question:
-        type: str
-        default: "all"
-    command: "python -m mi_bici.modeling.train --question {question} --tracking-uri http://127.0.0.1:5000"
+      question: {type: str, default: "p1"}
+      model: {type: str, default: "baseline"}
+    command: "python -m mi_bici.modeling.train --question {question} --model {model}"
+
+  # Búsqueda con nested runs sobre SEARCH_GRIDS de config.py
+  search:
+    parameters:
+      question: {type: str, default: "p1"}
+      model: {type: str, default: "ridge"}
+    command: "python -m mi_bici.modeling.search --question {question} --model {model}"
+
+  register:
+    parameters:
+      question: {type: str, default: "p1"}
+    command: "python -m mi_bici.modeling.register --question {question}"
 
   main:
-    command: "python -m mi_bici.dataset && python -m mi_bici.features && python -m mi_bici.modeling.train"
+    command: "python -m mi_bici.dataset && python -m mi_bici.features"

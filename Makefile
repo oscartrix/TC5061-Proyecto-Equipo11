@@ -68,6 +68,41 @@ data: requirements
 	$(PYTHON_INTERPRETER) mi_bici/dataset.py
 
 
+CONFIG = $(shell $(PYTHON_INTERPRETER) -c "from mi_bici.config import $(1); print($(1))")
+MLFLOW_BACKEND_STORE_URI = $(call CONFIG,MLFLOW_BACKEND_STORE_URI)
+MLFLOW_EXPERIMENT_NAME = $(call CONFIG,MLFLOW_EXPERIMENT_NAME)
+MLFLOW_SERVER_ADDRESS = $(shell $(PYTHON_INTERPRETER) -c "from urllib.parse import urlparse; \
+	from mi_bici.config import MLFLOW_TRACKING_URI; u = urlparse(MLFLOW_TRACKING_URI); \
+	print(f'--host {u.hostname} --port {u.port}')")
+MODELS = $(shell $(PYTHON_INTERPRETER) -c "from mi_bici.config import MODEL_DEFAULTS as d; \
+	print(' '.join(f'{q}:{m}' for q in d for m in d[q]))")
+
+# `mlflow run` toma el servidor de esta variable
+ifndef MLFLOW_TRACKING_URI
+MLFLOW_TRACKING_URI := $(call CONFIG,MLFLOW_TRACKING_URI)
+endif
+export MLFLOW_TRACKING_URI
+
+# Entorno de `mlflow run`. uv (aislado, desde python_env.yaml) o local (entorno activo)
+ENV_MANAGER ?= uv
+
+
+## Arrancar el MLflow tracking server
+.PHONY: mlflow-server
+mlflow-server:
+	mlflow server --backend-store-uri $(MLFLOW_BACKEND_STORE_URI) $(MLFLOW_SERVER_ADDRESS)
+
+
+## Entrenar cada modelo
+.PHONY: train-all
+train-all:
+	@for spec in $(MODELS); do \
+		echo ">>> mlflow run -e train -P question=$${spec%%:*} -P model=$${spec#*:}"; \
+		mlflow run . -e train -P question=$${spec%%:*} -P model=$${spec#*:} \
+			--experiment-name $(MLFLOW_EXPERIMENT_NAME) --env-manager $(ENV_MANAGER) || exit 1; \
+	done
+
+
 #################################################################################
 # Self Documenting Commands                                                     #
 #################################################################################

@@ -39,7 +39,7 @@ El detalle completo de la formulación se encuentra en [`references/ml-canvas.md
 
 ```text
 ├── LICENSE                  <- Licencia del proyecto
-├── Makefile                 <- Comandos de utilidad (make data, make test, make lint)
+├── Makefile                 <- Comandos de utilidad (make mlflow-server, make train-all, make test, make lint)
 ├── MLproject                <- Definición de entry points reproducibles para MLflow Projects
 ├── python_env.yaml          <- Entorno de Python que usa MLproject
 ├── README.md                <- Documentación principal del proyecto
@@ -69,7 +69,8 @@ El detalle completo de la formulación se encuentra en [`references/ml-canvas.md
 │   ├── propuesta_equipo11.md <- Documento integrador de la propuesta y resultados con APA 7
 │   └── figures/             <- Gráficas generadas y registradas como artefactos en MLflow
 ├── tests/
-│   └── test_data.py         <- Pruebas unitarias de validación de esquemas y fechas
+│   ├── test_data.py         <- Pruebas unitarias de validación de esquemas y fechas
+│   └── test_train_cli.py    <- Pruebas de la CLI de hiperparámetros de train
 └── mi_bici/                 <- Módulo principal de código fuente
     ├── __init__.py
     ├── config.py            <- Configuración centralizada (rutas, fechas, semilla=42, MLflow)
@@ -84,6 +85,8 @@ El detalle completo de la formulación se encuentra en [`references/ml-canvas.md
     └── modeling/
         ├── __init__.py
         ├── train.py         <- Ejecución y registro en MLflow de baselines y modelos candidatos
+        ├── search.py        <- Búsqueda de hiperparámetros con nested runs
+        ├── register.py      <- Selección del mejor candidato y alias champion en el Model Registry
         └── predict.py       <- Módulo base para inferencia
 ```
 
@@ -104,55 +107,127 @@ pip install -e . --no-deps
 nbstripout --install --attributes .gitattributes
 ```
 
-### El pipeline completo también puede ejecutarse mediante MLflow Projects:
-
-```bash
-mlflow run . --env-manager local
-```
-
-Si se presenta un error relacionado con la incompatibilidad entre los identificadores de los experimentos de MLflow (active experiment ID does not match environment run ID), se puede especificar explícitamente el nombre del experimento:
-
-```bash
-mlflow run . --env-manager local --experiment-name mibici-equipo11
-```
+`make` es opcional, todos los comandos del README tienen su equivalente directo.
 
 ---
 
-## 5. Ejecución del Pipeline (Ingesta, Features y Experimento Base en MLflow)
+## 5. Ejecución con MLflow Projects
 
-### Paso 1: Ingesta reproducible, conversión a Parquet y versionado (`dataset.py`)
+Todas las corridas se lanzan con `mlflow run` desde la raíz del repositorio. El archivo [`MLproject`](MLproject) define los entry points `ingest`, `features`, `train` y `main` (ingesta + features); fechas, rutas, semillas e hiperparámetros por default se leen de [`mi_bici/config.py`](mi_bici/config.py).
+
+Con `--env-manager uv`, MLflow crea un entorno aislado a partir de [`python_env.yaml`](python_env.yaml) (las mismas versiones fijas de `requirements.txt`). Durante el desarrollo se puede usar `--env-manager local` para correr en el entorno activo.
+
+### Paso 1: Levantar el servidor de tracking
+
+El Model Registry requiere un backend con base de datos, por lo que se usa un servidor local de MLflow respaldado por SQLite. En una terminal aparte:
+
+```bash
+mlflow server --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1 --port 5000
+# o bien: make mlflow-server
+```
+
+La UI de MLflow queda en <http://127.0.0.1:5000>. `mlflow.db` y `mlartifacts/` están en `.gitignore`.
+
+En la terminal donde se ejecutarán las corridas, apuntar MLflow al servidor (`mlflow run` no lee `config.py`; `make` exporta esta variable automáticamente):
+
+```bash
+export MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+```
+
+### Paso 2: Ingesta reproducible, conversión a Parquet y versionado (`ingest`)
 Descarga los 33 archivos mensuales y el catálogo de estaciones en `data/raw/`, normaliza columnas/codificación/fechas eliminando datos personales, guarda `data/processed/trips.parquet` y `data/processed/stations.parquet`, y actualiza `config/data_manifest.json` con el hash SHA-256 (`data_version`):
 
 ```bash
-python -m mi_bici.dataset --start 2024-01 --end 2026-09
+mlflow run . -e ingest --experiment-name mibici-equipo11 --env-manager uv
 ```
 
-### Paso 2: Construcción de características sin fuga temporal (`features.py`)
+El rango por default (`START_MONTH`, `END_MONTH`) viene de `config.py`; se puede cambiar con `-P start=2024-01 -P end=2026-09`.
+
+### Paso 3: Construcción de características sin fuga temporal (`features`)
 Genera los conjuntos procesados `p1_features.parquet`, `p2_features.parquet`, `p3_train_features.parquet` y `p3_holdout_features.parquet` (perfil de 2026 para medir estabilidad):
 
 ```bash
-python -m mi_bici.features
+mlflow run . -e features --experiment-name mibici-equipo11 --env-manager uv
 ```
 
-### Paso 3: Ejecución del experimento base en MLflow (`modeling/train.py`)
-Ejecuta los baselines y modelos candidatos para **P1**, **P2** y **P3**, registrando cada ejecución en el experimento **`mibici-equipo11`** con parámetros (`start_month`, `end_month`, `data_version`, `random_seed`), etiquetas (`team`, `question`, `git_commit`), métricas con prefijo (`val_*`, `test_*`) y artefactos gráficos en `reports/figures/`:
+Los pasos 2 y 3 también se ejecutan juntos con el entry point `main`: `mlflow run . --experiment-name mibici-equipo11 --env-manager uv`.
+
+### Paso 4: Entrenamiento (`train`)
+Cada `mlflow run -e train` entrena **un** modelo de una pregunta y genera **una** corrida en el experimento **`mibici-equipo11`** con parámetros (`question`, `model`, hiperparámetros, `start_month`, `end_month`, `data_version`, `random_seed`), etiquetas (`team`, `question`, `role`, `model_family`, `stage_of_work`, `git_commit`), métricas con prefijo (`val_*`, `test_*`) y gráficas como artefactos. MLflow agrega el commit, el entry point y el entorno de la corrida.
 
 ```bash
-python -m mi_bici.modeling.train
+# P1: baseline y Ridge con alpha=0.5
+mlflow run . -e train -P question=p1 -P model=baseline --experiment-name mibici-equipo11 --env-manager uv
+mlflow run . -e train -P question=p1 -P model=ridge -P alpha=0.5 --experiment-name mibici-equipo11 --env-manager uv
+
+# P2: HistGradientBoosting con max_depth=4
+mlflow run . -e train -P question=p2 -P model=hgb -P max_depth=4 --experiment-name mibici-equipo11 --env-manager uv
+
+# P3: K-Means de perfil de uso con 5 grupos
+mlflow run . -e train -P question=p3 -P model=kmeans_usage -P n_clusters=5 --experiment-name mibici-equipo11 --env-manager uv
 ```
 
-El pipeline completo también se puede correr con MLflow Projects: `mlflow run . --env-manager local`.
-
-Para abrir la interfaz web de MLflow y revisar o comparar los runs:
+Los modelos disponibles y sus hiperparámetros por default están en `MODEL_DEFAULTS` de `config.py`. Para listarlos:
 
 ```bash
-mlflow ui --backend-store-uri sqlite:///mlflow.db
+python -m mi_bici.modeling.train --list-models
 ```
 
-### Paso 4: Ejecutar pruebas unitarias
+Para entrenar todos los modelos con sus valores por default (un `mlflow run` por modelo):
+
+```bash
+make train-all
+```
+
+El `MLproject` solo declara `question` y `model`. Los hiperparámetros se agregan con `-P` (por ejemplo, `-P alpha=0.5`) y, si no se indican, se usa el valor de `config.py`. Así, cada corrida muestra solo los hiperparámetros de su modelo, con el valor que realmente usó, y los valores por default están en un solo lugar.
+
+Si un hiperparámetro no corresponde al modelo, `train` lo rechaza e indica cuáles son válidos. Si se omite `--experiment-name`, `train` se detiene y explica cómo corregirlo.
+
+### Paso 5: Búsqueda de hiperparámetros (`search`)
+Cada búsqueda crea una corrida padre (`stage_of_work=search`) y una corrida hija por combinación del grid (`stage_of_work=candidate`), todas en `mibici-equipo11`. Los grids están en `SEARCH_GRIDS` de `config.py`. La métrica de comparación por pregunta está en `SELECTION_METRICS` y se calcula sobre validación. El padre guarda la mejor combinación en `best_hyperparameters.json`.
+
+```bash
+mlflow run . -e search -P question=p1 -P model=ridge --experiment-name mibici-equipo11 --env-manager uv
+mlflow run . -e search -P question=p1 -P model=rf --experiment-name mibici-equipo11 --env-manager uv
+mlflow run . -e search -P question=p2 -P model=hgb --experiment-name mibici-equipo11 --env-manager uv
+mlflow run . -e search -P question=p3 -P model=kmeans_usage --experiment-name mibici-equipo11 --env-manager uv
+```
+
+### Paso 6: Artefactos de cada corrida
+Todas las corridas guardan el manifiesto (`data/data_manifest.json`), la configuración (`config/`), el conjunto de entrenamiento como `mlflow.log_input` y las gráficas (`plots/`). Los candidatos guardan además el modelo con firma y ejemplo de entrada. No se registran datos personales: los viajes se limpian en la ingesta y las tablas de entrenamiento solo tienen estaciones y conteos.
+
+### Paso 7: Model Registry (`register`)
+`register` toma, por pregunta, las corridas candidatas ordenadas por su métrica de validación, registra la mejor como nueva versión del modelo y le asigna el alias `champion`; la segunda mejor queda como `challenger`. Cada versión lleva descripción y las etiquetas `git_commit`, `data_version`, `source_run_id` y `experiment`. Al terminar carga `models:/<nombre>@champion` para comprobar que funciona.
+
+```bash
+mlflow run . -e register -P question=p1 --experiment-name mibici-equipo11 --env-manager uv
+mlflow run . -e register -P question=p2 --experiment-name mibici-equipo11 --env-manager uv
+mlflow run . -e register -P question=p3 --experiment-name mibici-equipo11 --env-manager uv
+```
+
+| Pregunta | Modelo registrado |
+|---|---|
+| P1 | `mibici-equipo11-p1-demanda` |
+| P2 | `mibici-equipo11-p2-riesgo` |
+| P3 | `mibici-equipo11-p3-grupos` |
+
+Para cargar el modelo en producción:
+
+```python
+import mlflow
+mlflow.set_tracking_uri('http://127.0.0.1:5000')
+model = mlflow.pyfunc.load_model('models:/mibici-equipo11-p1-demanda@champion')
+```
+
+**Esquema de ciclo de vida.** Se usan *aliases* y no las etapas (*Staging*, *Production*), que MLflow marcó como obsoletas desde la versión 2.9. Un alias es un puntero con nombre a una versión: el código siempre carga `@champion` y promover o revertir un modelo es mover el alias, sin cambiar código ni crear etapas fijas. Además se pueden tener varios alias a la vez (`champion` y `challenger`) y las etiquetas guardan el linaje de cada versión.
+
+### Paso 8: Ejecutar pruebas unitarias
 ```bash
 pytest
 ```
+
+### Integración continua
+El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: pruebas, servidor de tracking, ingesta, características, entrenamiento de todos los modelos, dos búsquedas, registro y carga de los tres modelos `champion`. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
 
 ---
 
@@ -160,7 +235,7 @@ pytest
 
 | Ámbito | Buenas prácticas implementadas | Dónde se verifica |
 |---|---|---|
-| **MLflow Tracking** | 1. Experimento único `mibici-equipo11` y runs con nombres descriptivos (`p1-baseline-seasonal-naive`, `p1-candidate-ridge-regression`, `p2-baseline-weekly-rule`, `p2-candidate-hist-gradient-boosting`, `p3-baseline-kmeans-geo`, `p3-candidate-kmeans-usage`).<br>2. Parámetros de reproducción completos: rango de fechas, `data_version` (SHA-256 de los CSV crudos, en el manifiesto), `random_seed=42` e hiperparámetros.<br>3. Etiquetas (`tags`) con `team=equipo11`, `question=P1|P2|P3` y `git_commit`.<br>4. Métricas con prefijo del conjunto (`val_mae`, `test_mae`, `val_f1_macro`, `test_f1_macro`, `train_silhouette_usage`, `holdout_ari_stability`).<br>5. Sin credenciales ni datos personales registrados. | [`mi_bici/modeling/train.py`](mi_bici/modeling/train.py) e Interfaz de MLflow |
+| **MLflow Tracking** | 1. Experimento único `mibici-equipo11` y una run por `mlflow run` con nombre descriptivo (`p1-baseline`, `p1-candidate-ridge`, `p2-baseline`, `p2-candidate-hgb`, `p3-baseline`, `p3-candidate-kmeans_usage`).<br>2. Parámetros de reproducción completos: rango de fechas, `data_version` (SHA-256 de los CSV crudos, en el manifiesto), `random_seed=42` e hiperparámetros.<br>3. Etiquetas (`tags`) con `team=equipo11`, `question=P1|P2|P3` y `git_commit`.<br>4. Métricas con prefijo del conjunto (`val_mae`, `test_mae`, `val_f1_macro`, `test_f1_macro`, `train_silhouette_usage`, `holdout_ari_stability`).<br>5. Sin credenciales ni datos personales registrados. | [`mi_bici/modeling/train.py`](mi_bici/modeling/train.py) e Interfaz de MLflow |
 | **Estructura y Código** | 1. Notebooks usados únicamente para exploración y pruebas en `notebooks/` y `notebooks/pruebas/`; la lógica reproducible vive en el paquete `mi_bici/`.<br>2. Configuración centralizada en un único archivo (`mi_bici/config.py`) sin repetir rutas, fechas ni semillas.<br>3. Dependencias con versión fija en `requirements.txt` y `requirements-dev.txt`. | [`mi_bici/config.py`](mi_bici/config.py), [`requirements.txt`](requirements.txt) |
 | **Datos y Git** | 1. `.gitignore` excluye `data/raw/`, `data/processed/`, `*.parquet`, `mlruns/`, `mlartifacts/`, `mlflow.db`, `models/` y `.env`.<br>2. Rama `main` protegida y flujo de trabajo mediante Pull Requests revisados por el equipo. | [`.gitignore`](.gitignore) e historial de PRs en GitHub |
 

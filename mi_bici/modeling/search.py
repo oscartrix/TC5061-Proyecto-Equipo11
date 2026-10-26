@@ -17,7 +17,7 @@ def search_p1_ridge():
     alpha_values = SEARCH_GRIDS["p1"]["ridge"]["alpha"]
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    #mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
+    mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
     best_alpha = None
     best_mae = float("inf")

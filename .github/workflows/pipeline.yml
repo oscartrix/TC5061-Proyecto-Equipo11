@@ -2,7 +2,7 @@ name: pipeline
 
 on:
   push:
-    branches: [main, ci/pipeline-clon-limpio]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:

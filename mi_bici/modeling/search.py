@@ -146,11 +146,7 @@ def search_hyperparameters(question: str, model: str) -> None:
 
                 score = metrics[metric_name]
 
-                is_better = (
-                    score < best_score
-                    if direction == "min"
-                    else score > best_score
-                )
+                is_better = is_better_score(score, best_score, direction)
 
                 if is_better:
                     best_score = score
@@ -165,6 +161,13 @@ def search_hyperparameters(question: str, model: str) -> None:
     print(f"Mejor configuración para {question}/{model}: {best_params}")
     print(f"Mejor {metric_name}: {best_score:.4f}")
 
+def is_better_score(score: float, best_score: float, direction: str) -> bool:
+    """Determina si una métrica mejora el mejor resultado actual."""
+    if direction == "min":
+        return score < best_score
+    if direction == "max":
+        return score > best_score
+    raise ValueError(f"Dirección de optimización inválida: {direction}")
 
 import typer
 

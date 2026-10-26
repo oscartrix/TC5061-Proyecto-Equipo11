@@ -315,6 +315,9 @@ def build_p2_model(model: str, hparams: dict):
     """Clasificadores de P2 sobre las mismas características."""
     if model == 'hgb':
         return HistGradientBoostingClassifier(**hparams, random_state=RANDOM_SEED)
+    if model == 'hgb_balanced':
+        # Pesos por clase para no dejar pasar tantos casos de déficit
+        return HistGradientBoostingClassifier(**hparams, class_weight='balanced', random_state=RANDOM_SEED)
     if model == 'rf':
         return RandomForestClassifier(**hparams, n_jobs=-1, random_state=RANDOM_SEED)
     return Pipeline(

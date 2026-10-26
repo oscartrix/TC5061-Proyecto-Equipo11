@@ -13,8 +13,8 @@ import typer
 from mi_bici.config import (
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_TRACKING_URI,
-    P3_MIN_STABILITY,
     REGISTERED_MODELS,
+    SELECTION_FLOORS,
     SELECTION_METRICS,
 )
 
@@ -37,8 +37,9 @@ def ranked_runs(client: MlflowClient, experiment_id: str, question: str) -> pd.D
     )
     column = f'metrics.{metric}'
     runs = runs.dropna(subset=[column])
-    if question == 'p3':
-        runs = runs[runs['metrics.holdout_ari_stability'] >= P3_MIN_STABILITY]
+    if question in SELECTION_FLOORS:
+        floor_metric, floor = SELECTION_FLOORS[question]
+        runs = runs[runs[f'metrics.{floor_metric}'] >= floor]
     return runs.sort_values(column, ascending=(direction == 'min')).reset_index(drop=True)
 
 
@@ -46,7 +47,7 @@ def comparison_table(client: MlflowClient, experiment_id: str, question: str) ->
     """Baseline y candidatos con sus métricas, para el reporte."""
     runs = mlflow.search_runs(
         experiment_ids=[experiment_id],
-        filter_string=f"tags.question = '{question}' and tags.stage_of_work in ('baseline', 'candidate')",
+        filter_string=f"tags.question = '{question}' and tags.stage_of_work != 'search'",
     )
     metrics = [f'metrics.{m}' for m in REPORT_METRICS[question]]
     table = runs[['run_id', 'tags.stage_of_work', 'tags.model_family', *metrics]].copy()

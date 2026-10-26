@@ -59,6 +59,7 @@ MODEL_DEFAULTS = {
     'p2': {
         'baseline': {},
         'hgb': {'max_iter': 150, 'learning_rate': 0.08, 'max_depth': 6},
+        'hgb_balanced': {'max_iter': 150, 'learning_rate': 0.08, 'max_depth': 6},
         'rf': {'n_estimators': 100, 'max_depth': 12, 'min_samples_leaf': 20},
         'logreg': {'C': 1.0},
     },
@@ -83,6 +84,11 @@ SEARCH_GRIDS = {
             'learning_rate': [0.05, 0.08],
             'max_depth': [4, 6],
         },
+        'hgb_balanced': {
+            'max_iter': [100, 150, 200],
+            'learning_rate': [0.05, 0.08],
+            'max_depth': [4, 6],
+        },
         'logreg': {'C': [0.01, 0.1, 1.0, 10.0]},
     },
     'p3': {
@@ -95,12 +101,15 @@ SEARCH_GRIDS = {
 # Métrica de validación para elegir candidatos y su dirección (min o max)
 SELECTION_METRICS = {
     'p1': ('val_mae', 'min'),
-    'p2': ('val_f1_macro', 'max'),
+    'p2': ('val_recall_deficit', 'max'),
     'p3': ('train_silhouette_usage', 'max'),
 }
 
-# Estabilidad mínima (ARI contra 2026) para que un clustering de P3 pueda ser champion
-P3_MIN_STABILITY = 0.4
+# Piso que debe cumplir un candidato para ser champion, además de la métrica de selección
+SELECTION_FLOORS = {
+    'p2': ('val_f1_macro', 0.5),
+    'p3': ('holdout_ari_stability', 0.4),
+}
 
 # Nombres en el Model Registry y qué predice cada modelo
 REGISTERED_MODELS = {

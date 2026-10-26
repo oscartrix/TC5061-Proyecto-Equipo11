@@ -1,0 +1,86 @@
+name: pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 15 * * 1'
+
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MLFLOW_TRACKING_URI: http://127.0.0.1:5000
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          pip install -r requirements.txt pytest
+          pip install -e . --no-deps
+
+      - name: Revisar que no se versionen datos ni artefactos de MLflow
+        run: |
+          if git ls-files | grep -E 'mlflow\.db|mlruns/|mlartifacts/|\.parquet$|\.pkl$|\.joblib$|data/raw/.+\.csv$'; then
+            echo 'Hay archivos que no deben estar en el repositorio'
+            exit 1
+          fi
+
+      - name: Pruebas
+        run: python -m pytest -q tests
+
+      - name: Servidor de tracking
+        run: |
+          nohup mlflow server --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1 --port 5000 > server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf $MLFLOW_TRACKING_URI/health && exit 0
+            sleep 2
+          done
+          cat server.log
+          exit 1
+
+      - name: Cache de los CSV de MiBici
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: raw-${{ hashFiles('config/sources.yaml') }}
+
+      - name: Ingesta y características
+        run: mlflow run . -e main --experiment-name mibici-equipo11 --env-manager local
+
+      - name: Baselines y candidatos
+        run: make train-all ENV_MANAGER=local
+
+      - name: Búsquedas con nested runs
+        run: |
+          mlflow run . -e search -P question=p1 -P model=ridge --experiment-name mibici-equipo11 --env-manager local
+          mlflow run . -e search -P question=p3 -P model=kmeans_usage --experiment-name mibici-equipo11 --env-manager local
+
+      - name: Model Registry
+        run: |
+          for q in p1 p2 p3; do
+            mlflow run . -e register -P question=$q --experiment-name mibici-equipo11 --env-manager local
+          done
+
+      - name: Cargar los modelos champion por nombre y alias
+        run: |
+          python - <<'PY'
+          import mlflow
+          for name in ['p1-demanda', 'p2-riesgo', 'p3-grupos']:
+              model = mlflow.pyfunc.load_model(f'models:/mibici-equipo11-{name}@champion')
+              print(name, model.metadata.signature is not None)
+          PY

@@ -33,8 +33,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
-# Git
-.git/
+# Git (.git/ se copia a propósito para registrar el commit)
 .gitignore
 
 # IDE y OS

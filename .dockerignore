@@ -1,0 +1,57 @@
+# ================================================
+# MiBici - Docker ignore
+# ================================================
+
+# Entorno virtual
+.venv/
+venv/
+env/
+mlops/
+
+# Datos y modelos (se montan como volúmenes)
+data/raw/**
+data/interim/**
+data/processed/**
+data/external/**
+models/**
+
+# MLflow artifacts y base de datos local
+mlruns/
+mlartifacts/
+mlflow.db
+mlflow.db-*
+
+# Notebooks y reportes (no necesarios en la imagen)
+notebooks/
+reports/figures/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Git
+.git/
+.gitignore
+
+# IDE y OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Variables de entorno locales
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+tmp/
+temp/
+
+# Dependencias de desarrollo (no necesarias en producción)
+requirements-dev.txt

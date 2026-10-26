@@ -53,36 +53,69 @@ MODEL_DEFAULTS = {
     'p1': {
         'baseline': {},
         'ridge': {'alpha': 1.0},
+        'rf': {'n_estimators': 100, 'max_depth': 12, 'min_samples_leaf': 20},
+        'hgb': {'max_iter': 200, 'learning_rate': 0.08, 'max_depth': 6},
     },
     'p2': {
         'baseline': {},
         'hgb': {'max_iter': 150, 'learning_rate': 0.08, 'max_depth': 6},
+        'hgb_balanced': {'max_iter': 150, 'learning_rate': 0.08, 'max_depth': 6},
+        'rf': {'n_estimators': 100, 'max_depth': 12, 'min_samples_leaf': 20},
+        'logreg': {'C': 1.0},
     },
     'p3': {
         'baseline': {'n_clusters': 4},
         'kmeans_usage': {'n_clusters': 4},
+        'gmm_usage': {'n_clusters': 4, 'covariance_type': 'full'},
+        'kmeans_pca': {'n_clusters': 4, 'n_components': 3},
     },
 }
 
 # Combinaciones de hiperparámetros para búsquedas con MLflow.
 SEARCH_GRIDS = {
-    "p1": {
-        "ridge": {
-            "alpha": [0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0],
-        },
+    'p1': {
+        'ridge': {'alpha': [0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0]},
+        'rf': {'max_depth': [8, 12, 16], 'min_samples_leaf': [10, 40]},
+        'hgb': {'max_iter': [100, 200], 'learning_rate': [0.05, 0.1], 'max_depth': [4, 8]},
     },
-    "p2": {
-        "hgb": {
-            "max_iter": [100, 150, 200],
-            "learning_rate": [0.05, 0.08],
-            "max_depth": [4, 6],
+    'p2': {
+        'hgb': {
+            'max_iter': [100, 150, 200],
+            'learning_rate': [0.05, 0.08],
+            'max_depth': [4, 6],
         },
-    },
-    "p3": {
-        "kmeans_usage": {
-            "n_clusters": [3, 4, 5, 6],
+        'hgb_balanced': {
+            'max_iter': [100, 150, 200],
+            'learning_rate': [0.05, 0.08],
+            'max_depth': [4, 6],
         },
+        'logreg': {'C': [0.01, 0.1, 1.0, 10.0]},
     },
+    'p3': {
+        'kmeans_usage': {'n_clusters': [3, 4, 5, 6]},
+        'gmm_usage': {'n_clusters': [3, 4, 5, 6], 'covariance_type': ['full', 'diag']},
+        'kmeans_pca': {'n_clusters': [3, 4, 5, 6], 'n_components': [2, 3, 5]},
+    },
+}
+
+# Métrica de validación para elegir candidatos y su dirección (min o max)
+SELECTION_METRICS = {
+    'p1': ('val_mae', 'min'),
+    'p2': ('val_recall_deficit', 'max'),
+    'p3': ('train_silhouette_usage', 'max'),
+}
+
+# Piso que debe cumplir un candidato para ser champion, además de la métrica de selección
+SELECTION_FLOORS = {
+    'p2': ('val_f1_macro', 0.5),
+    'p3': ('holdout_ari_stability', 0.4),
+}
+
+# Nombres en el Model Registry y qué predice cada modelo
+REGISTERED_MODELS = {
+    'p1': ('mibici-equipo11-p1-demanda', 'Viajes de salida por estación al día siguiente (regresión)'),
+    'p2': ('mibici-equipo11-p2-riesgo', 'Riesgo de déficit, balance o excedente de bicis en las próximas 3 horas (clasificación)'),
+    'p3': ('mibici-equipo11-p3-grupos', 'Grupos de estaciones por perfil de uso (clustering)'),
 }
 
 try:

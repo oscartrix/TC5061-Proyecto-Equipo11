@@ -85,6 +85,8 @@ El detalle completo de la formulación se encuentra en [`references/ml-canvas.md
     └── modeling/
         ├── __init__.py
         ├── train.py         <- Ejecución y registro en MLflow de baselines y modelos candidatos
+        ├── search.py        <- Búsqueda de hiperparámetros con nested runs
+        ├── register.py      <- Selección del mejor candidato y alias champion en el Model Registry
         └── predict.py       <- Módulo base para inferencia
 ```
 
@@ -151,7 +153,7 @@ mlflow run . -e features --experiment-name mibici-equipo11 --env-manager uv
 Los pasos 2 y 3 también se ejecutan juntos con el entry point `main`: `mlflow run . --experiment-name mibici-equipo11 --env-manager uv`.
 
 ### Paso 4: Entrenamiento (`train`)
-Cada `mlflow run -e train` entrena **un** modelo de una pregunta y genera **una** corrida en el experimento **`mibici-equipo11`** con parámetros (`question`, `model`, hiperparámetros, `start_month`, `end_month`, `data_version`, `random_seed`), etiquetas (`team`, `question`, `git_commit`), métricas con prefijo (`val_*`, `test_*`) y gráficas como artefactos. MLflow agrega el commit, el entry point y el entorno de la corrida.
+Cada `mlflow run -e train` entrena **un** modelo de una pregunta y genera **una** corrida en el experimento **`mibici-equipo11`** con parámetros (`question`, `model`, hiperparámetros, `start_month`, `end_month`, `data_version`, `random_seed`), etiquetas (`team`, `question`, `role`, `model_family`, `stage_of_work`, `git_commit`), métricas con prefijo (`val_*`, `test_*`) y gráficas como artefactos. MLflow agrega el commit, el entry point y el entorno de la corrida.
 
 ```bash
 # P1: baseline y Ridge con alpha=0.5
@@ -181,68 +183,53 @@ El `MLproject` solo declara `question` y `model`. Los hiperparámetros se agrega
 
 Si un hiperparámetro no corresponde al modelo, `train` lo rechaza e indica cuáles son válidos. Si se omite `--experiment-name`, `train` se detiene y explica cómo corregirlo.
 
-### Paso 5: Ejecutar pruebas unitarias
+### Paso 5: Búsqueda de hiperparámetros (`search`)
+Cada búsqueda crea una corrida padre (`stage_of_work=search`) y una corrida hija por combinación del grid (`stage_of_work=candidate`), todas en `mibici-equipo11`. Los grids están en `SEARCH_GRIDS` de `config.py`. La métrica de comparación por pregunta está en `SELECTION_METRICS` y se calcula sobre validación. El padre guarda la mejor combinación en `best_hyperparameters.json`.
+
+```bash
+mlflow run . -e search -P question=p1 -P model=ridge --experiment-name mibici-equipo11 --env-manager uv
+mlflow run . -e search -P question=p1 -P model=rf --experiment-name mibici-equipo11 --env-manager uv
+mlflow run . -e search -P question=p2 -P model=hgb --experiment-name mibici-equipo11 --env-manager uv
+mlflow run . -e search -P question=p3 -P model=kmeans_usage --experiment-name mibici-equipo11 --env-manager uv
+```
+
+### Paso 6: Artefactos de cada corrida
+Todas las corridas guardan el manifiesto (`data/data_manifest.json`), la configuración (`config/`), el conjunto de entrenamiento como `mlflow.log_input` y las gráficas (`plots/`). Los candidatos guardan además el modelo con firma y ejemplo de entrada. No se registran datos personales: los viajes se limpian en la ingesta y las tablas de entrenamiento solo tienen estaciones y conteos.
+
+### Paso 7: Model Registry (`register`)
+`register` toma, por pregunta, las corridas candidatas ordenadas por su métrica de validación, registra la mejor como nueva versión del modelo y le asigna el alias `champion`; la segunda mejor queda como `challenger`. Cada versión lleva descripción y las etiquetas `git_commit`, `data_version`, `source_run_id` y `experiment`. Al terminar carga `models:/<nombre>@champion` para comprobar que funciona.
+
+```bash
+mlflow run . -e register -P question=p1 --experiment-name mibici-equipo11 --env-manager uv
+mlflow run . -e register -P question=p2 --experiment-name mibici-equipo11 --env-manager uv
+mlflow run . -e register -P question=p3 --experiment-name mibici-equipo11 --env-manager uv
+```
+
+| Pregunta | Modelo registrado |
+|---|---|
+| P1 | `mibici-equipo11-p1-demanda` |
+| P2 | `mibici-equipo11-p2-riesgo` |
+| P3 | `mibici-equipo11-p3-grupos` |
+
+Para cargar el modelo en producción:
+
+```python
+import mlflow
+mlflow.set_tracking_uri('http://127.0.0.1:5000')
+model = mlflow.pyfunc.load_model('models:/mibici-equipo11-p1-demanda@champion')
+```
+
+**Esquema de ciclo de vida.** Se usan *aliases* y no las etapas (*Staging*, *Production*), que MLflow marcó como obsoletas desde la versión 2.9. Un alias es un puntero con nombre a una versión: el código siempre carga `@champion` y promover o revertir un modelo es mover el alias, sin cambiar código ni crear etapas fijas. Además se pueden tener varios alias a la vez (`champion` y `challenger`) y las etiquetas guardan el linaje de cada versión.
+
+### Paso 8: Ejecutar pruebas unitarias
 ```bash
 pytest
 ```
 
+### Integración continua
+El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: pruebas, servidor de tracking, ingesta, características, entrenamiento de todos los modelos, dos búsquedas, registro y carga de los tres modelos `champion`. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
+
 ---
-## Búsqueda de hiperparámetros con MLflow
-
-El proyecto implementa búsquedas de hiperparámetros para las tres preguntas de investigación mediante **MLflow Nested Runs**.
-
-Cada búsqueda genera una ejecución padre (*parent run*) que agrupa las ejecuciones hijas (*child runs*), correspondientes a las diferentes configuraciones evaluadas.
-
-### Configuración
-
-Los espacios de búsqueda se encuentran centralizados en `mi_bici/config.py`, mediante el diccionario `SEARCH_GRIDS`.
-
-### Ejecución
-
-Con el entorno virtual activado y el servidor de MLflow disponible en `http://127.0.0.1:5000`, ejecutar desde la raíz del repositorio:
-
-**Pregunta 1. Predicción de demanda (Ridge)**
-
-```powershell
-python -m mi_bici.modeling.search --question p1 --model ridge
-```
-
-Se evalúan 6 configuraciones de `alpha`, seleccionando aquella con menor `val_mae`.
-
-**Pregunta 2 — Clasificación (HistGradientBoosting)**
-
-```powershell
-python -m mi_bici.modeling.search --question p2 --model hgb
-```
-
-Se evalúan 12 combinaciones de `max_iter`, `learning_rate` y `max_depth`, seleccionando la configuración con mayor `val_f1_macro`.
-
-**Pregunta 3 — Agrupamiento (KMeans)**
-
-```powershell
-python -m mi_bici.modeling.search --question p3 --model kmeans_usage
-```
-
-Se evalúan 4 valores de `n_clusters`. La implementación actual selecciona la configuración con mayor `holdout_ari_stability`, una métrica de estabilidad que debe interpretarse junto con silhouette y Davies-Bouldin.
-
-### Resultados registrados
-
-Cada búsqueda registra en MLflow:
-
-- Una ejecución padre con el resumen de la búsqueda.
-- Ejecuciones hijas con los hiperparámetros y métricas de cada configuración.
-- La mejor métrica obtenida y un archivo `best_hyperparameters.json`.
-- La referencia a la ejecución hija seleccionada mediante `best_child_run_id`.
-
-### Pruebas automatizadas
-
-Para verificar la generación de combinaciones y los criterios de comparación:
-
-```powershell
-python -m pytest tests/test_search.py -v
-```
-
-Estas pruebas no requieren ejecutar nuevamente los entrenamientos.
 
 ## 6. Buenas Prácticas Aplicadas
 

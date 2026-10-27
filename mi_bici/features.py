@@ -80,14 +80,15 @@ def build_p1_daily_features(trips: pd.DataFrame, stations: pd.DataFrame) -> pd.D
         stations['is_active'], ['station_id', 'capacity', 'zone']
     ].copy()
     all_dates = pd.date_range(df['date'].min(), df['date'].max(), freq='D')
+    first_day = daily_counts.groupby('station_id')['date'].min()
 
     grid = (
-        pd.MultiIndex.from_product(
-            [active_stations['station_id'].unique(), all_dates],
-            names=['station_id', 'date'],
-        )
-        .to_frame()
-        .reset_index(drop=True)
+        first_day
+        .apply(lambda d: pd.Series(all_dates[all_dates >= d]))
+        .stack()
+        .reset_index(level=1, drop=True)
+        .reset_index()
+        .rename(columns={0: 'date'})
     )
 
     p1 = grid.merge(daily_counts, on=['station_id', 'date'], how='left')

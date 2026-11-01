@@ -3,7 +3,7 @@
 #################################################################################
 
 PROJECT_NAME = mi-bici
-PYTHON_VERSION = 3.10
+PYTHON_VERSION = 3.13
 PYTHON_INTERPRETER = python
 
 #################################################################################
@@ -54,12 +54,10 @@ validate:
 
 
 ## Análisis de seguridad del código y de las dependencias
-# pillow queda fuera: las correcciones piden Python 3.11 y el proyecto usa 3.10
 .PHONY: security
 security:
 	bandit -q -r mi_bici
-	grep -v '^pillow==' requirements.txt > .audit-requirements.txt
-	pip-audit -r .audit-requirements.txt --no-deps --disable-pip; r=$$?; rm -f .audit-requirements.txt; exit $$r
+	pip-audit -r requirements.txt --no-deps --disable-pip
 
 
 ## Pruebas y seguridad

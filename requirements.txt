@@ -57,7 +57,7 @@ opentelemetry-sdk==1.45.1
 opentelemetry-semantic-conventions==0.66b1
 packaging==26.3
 pandas==2.3.3
-pillow==12.3.0
+pillow==13.0.0
 prettytable==3.18.0
 propcache==0.5.4
 protobuf==7.36.2

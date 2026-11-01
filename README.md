@@ -94,13 +94,13 @@ El detalle completo de la formulación se encuentra en [`references/ml-canvas.md
 
 ## 4. Requisitos e Instalación Reproducible
 
-- Python 3.10
+- Python 3.13
 - [uv](https://docs.astral.sh/uv/) para la gestión reproducible del entorno virtual
 
 Desde un clon limpio del repositorio:
 
 ```bash
-uv venv --python 3.10 --seed .venv
+uv venv --python 3.13 --seed .venv
 source .venv/bin/activate
 uv pip sync requirements-dev.txt
 uv pip install -r requirements-test.txt
@@ -251,7 +251,7 @@ Estructura de `tests/`:
 
 `run_validation` termina con error si algún conjunto trae valores faltantes, duplicados o está vacío. Los reportes quedan en `reports/data_quality/` y `reports/data_drift/` (no se versionan). Drift observado (Kolmogorov-Smirnov, train contra test): P1 en `month` (0.49), P3 en `total_arrs` y `total_deps` (0.48); P2 sin drift relevante (máximo 0.06).
 
-Seguridad: no hay credenciales en el repositorio. La única configuración externa es `MLFLOW_TRACKING_URI`, que se lee del entorno (ver `.env.example`); `.env`, `mlflow.db`, `mlartifacts/` y los datos están en `.gitignore`. `bandit` no reporta hallazgos y `pip-audit` no reporta vulnerabilidades. `pillow` 12.3.0 se excluye de la auditoría porque sus correcciones requieren Python 3.11 y el proyecto usa 3.10.
+Seguridad: no hay credenciales en el repositorio. La única configuración externa es `MLFLOW_TRACKING_URI`, que se lee del entorno (ver `.env.example`); `.env`, `mlflow.db`, `mlartifacts/` y los datos están en `.gitignore`. `bandit` no reporta hallazgos y `pip-audit` no reporta vulnerabilidades.
 
 Evidencia de la ejecución:
 

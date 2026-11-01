@@ -58,6 +58,7 @@ def validate_drift(name, train, test, categorical_features):
         cat_features=categorical_features,
     )
 
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     result = FeatureDrift().run(train_dataset, test_dataset)
     html_path = OUTPUT_DIR / f"{name.lower()}_drift_report.html"
 

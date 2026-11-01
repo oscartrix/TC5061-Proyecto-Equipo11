@@ -17,7 +17,37 @@ env:
   MLFLOW_TRACKING_URI: http://127.0.0.1:5000
 
 jobs:
+  calidad:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          pip install -r requirements.txt -r requirements-test.txt
+          pip install -e . --no-deps
+
+      - name: Pruebas
+        run: python -m pytest -q tests
+
+      - name: Seguridad
+        run: make security
+
+      - name: Buscar credenciales en el repositorio
+        run: |
+          if git grep -nEi '(password|passwd|secret|api[_-]?key|aws_access_key_id)[[:space:]]*[=:][[:space:]]*["'"'"'][^"'"'"']+["'"'"']' -- '*.py' '*.yml' '*.yaml' '*.json' ':!requirements*'; then
+            echo 'Posible credencial en el repositorio'
+            exit 1
+          fi
+
   pipeline:
+    needs: calidad
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -40,9 +70,6 @@ jobs:
             exit 1
           fi
 
-      - name: Pruebas
-        run: python -m pytest -q tests
-
       - name: Servidor de tracking
         run: |
           nohup mlflow server --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1 --port 5000 > server.log 2>&1 &
@@ -61,6 +88,17 @@ jobs:
 
       - name: Ingesta y características
         run: mlflow run . -e main --experiment-name mibici-equipo11 --env-manager local
+
+      - name: Validación de datos con DeepChecks
+        run: make validate
+
+      - name: Guardar reportes de validación
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-validacion
+          path: |
+            reports/data_quality
+            reports/data_drift
 
       - name: Baselines y candidatos
         run: make train-all ENV_MANAGER=local

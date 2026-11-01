@@ -46,6 +46,27 @@ test:
 	python -m pytest tests
 
 
+## Validación de calidad y drift de los datos procesados
+.PHONY: validate
+validate:
+	python -m mi_bici.validation.run_validation
+	python -m mi_bici.validation.drift_validation
+
+
+## Análisis de seguridad del código y de las dependencias
+# pillow queda fuera: las correcciones piden Python 3.11 y el proyecto usa 3.10
+.PHONY: security
+security:
+	bandit -q -r mi_bici
+	grep -v '^pillow==' requirements.txt > .audit-requirements.txt
+	pip-audit -r .audit-requirements.txt --no-deps --disable-pip; r=$$?; rm -f .audit-requirements.txt; exit $$r
+
+
+## Pruebas y seguridad
+.PHONY: check
+check: test security
+
+
 ## Set up Python interpreter environment
 .PHONY: create_environment
 create_environment:

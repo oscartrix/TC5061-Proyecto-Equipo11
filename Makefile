@@ -3,7 +3,7 @@
 #################################################################################
 
 PROJECT_NAME = mi-bici
-PYTHON_VERSION = 3.10
+PYTHON_VERSION = 3.13
 PYTHON_INTERPRETER = python
 
 #################################################################################
@@ -44,6 +44,25 @@ format:
 .PHONY: test
 test:
 	python -m pytest tests
+
+
+## Validación de calidad y drift de los datos procesados
+.PHONY: validate
+validate:
+	python -m mi_bici.validation.run_validation
+	python -m mi_bici.validation.drift_validation
+
+
+## Análisis de seguridad del código y de las dependencias
+.PHONY: security
+security:
+	bandit -q -r mi_bici
+	pip-audit -r requirements.txt --no-deps --disable-pip
+
+
+## Pruebas y seguridad
+.PHONY: check
+check: test security
 
 
 ## Set up Python interpreter environment

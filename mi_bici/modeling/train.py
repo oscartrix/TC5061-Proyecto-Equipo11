@@ -8,7 +8,7 @@ Uso:
 
 import json
 import os
-import subprocess
+import subprocess  # nosec B404
 
 from loguru import logger
 import matplotlib.pyplot as plt
@@ -73,7 +73,8 @@ app = typer.Typer()
 def get_git_commit() -> str:
     """Obtiene el hash del commit actual de Git."""
     try:
-        out = subprocess.check_output(
+        # comando fijo, sin entrada del usuario
+        out = subprocess.check_output(  # nosec B603 B607
             ['git', 'rev-parse', '--short=12', 'HEAD'], cwd=PROJ_ROOT, text=True
         )
         return out.strip()

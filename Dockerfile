@@ -1,5 +1,5 @@
-# Python 3.10 slim — versión fijada en pyproject.toml y python_env.yaml
-FROM python:3.10-slim
+# Python 3.13 slim — versión fijada en pyproject.toml y python_env.yaml
+FROM python:3.13-slim
 
 LABEL maintainer="TC5061-Equipo11"
 LABEL description="MLOps MiBici: ingesta, features y entrenamiento con MLflow"

@@ -103,6 +103,7 @@ Desde un clon limpio del repositorio:
 uv venv --python 3.10 --seed .venv
 source .venv/bin/activate
 uv pip sync requirements-dev.txt
+uv pip install -r requirements-test.txt
 pip install -e . --no-deps
 nbstripout --install --attributes .gitattributes
 ```
@@ -221,13 +222,46 @@ model = mlflow.pyfunc.load_model('models:/mibici-equipo11-p1-demanda@champion')
 
 **Esquema de ciclo de vida.** Se usan *aliases* y no las etapas (*Staging*, *Production*), que MLflow marcó como obsoletas desde la versión 2.9. Un alias es un puntero con nombre a una versión: el código siempre carga `@champion` y promover o revertir un modelo es mover el alias, sin cambiar código ni crear etapas fijas. Además se pueden tener varios alias a la vez (`champion` y `challenger`) y las etiquetas guardan el linaje de cada versión.
 
-### Paso 8: Ejecutar pruebas unitarias
+### Paso 8: Pruebas, validación de datos y seguridad
+
+Entorno de pruebas (además de `requirements.txt`):
+
 ```bash
-pytest
+pip install -r requirements.txt -r requirements-test.txt
+pip install -e . --no-deps
 ```
 
+| Comando | Qué hace |
+|---|---|
+| `make test` | Corre todo `tests/` con pytest |
+| `make validate` | Calidad (`run_validation`) y drift (`drift_validation`) con DeepChecks sobre `data/processed/`. Requiere haber corrido `features` |
+| `make security` | `bandit` sobre `mi_bici/` y `pip-audit` sobre `requirements.txt` |
+| `make check` | `test` y `security` |
+
+Estructura de `tests/`:
+
+| Archivo | Cubre |
+|---|---|
+| `test_data.py`, `test_readers.py` | Encabezados, encoding, fechas mixtas, rangos `AAAA-MM` |
+| `test_features.py` | Festivos, partición temporal en sus límites, características P1 sin fuga |
+| `test_train_cli.py`, `test_train_runs.py`, `test_search.py` | Hiperparámetros, corridas de MLflow, búsqueda |
+| `test_reproducibility.py` | Misma semilla, mismas predicciones (Ridge, RF, HGB, K-Means) |
+| `test_deepchecks.py` | Nulos, duplicados y tipos sobre datos con problemas conocidos |
+| `test_drift.py` | Drift entre train y test, muestreo reproducible |
+
+`run_validation` termina con error si algún conjunto trae valores faltantes, duplicados o está vacío. Los reportes quedan en `reports/data_quality/` y `reports/data_drift/` (no se versionan). Drift observado (Kolmogorov-Smirnov, train contra test): P1 en `month` (0.49), P3 en `total_arrs` y `total_deps` (0.48); P2 sin drift relevante (máximo 0.06).
+
+Seguridad: no hay credenciales en el repositorio. La única configuración externa es `MLFLOW_TRACKING_URI`, que se lee del entorno (ver `.env.example`); `.env`, `mlflow.db`, `mlartifacts/` y los datos están en `.gitignore`. `bandit` no reporta hallazgos y `pip-audit` no reporta vulnerabilidades. `pillow` 12.3.0 se excluye de la auditoría porque sus correcciones requieren Python 3.11 y el proyecto usa 3.10.
+
+Evidencia de la ejecución:
+
+![pytest](docs/evidencia/01_pytest.png)
+![calidad](docs/evidencia/02_deepchecks_calidad.png)
+![drift](docs/evidencia/03_deepchecks_drift.png)
+![seguridad](docs/evidencia/04_seguridad.png)
+
 ### Integración continua
-El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: pruebas, servidor de tracking, ingesta, características, entrenamiento de todos los modelos, dos búsquedas, registro y carga de los tres modelos `champion`. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
+El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks (los reportes se guardan como artefacto), entrenamiento de todos los modelos, dos búsquedas, registro y carga de los tres modelos `champion`. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
 
 ---
 

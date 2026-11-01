@@ -28,6 +28,7 @@ def main():
     }
 
     summary_rows = []
+    problemas = []
 
     for name, path in datasets.items():
         print(f"\n===== VALIDANDO {name} =====")
@@ -68,15 +69,21 @@ def main():
                 "duplicate_rows": int(df.duplicated().sum()),
             })
 
-        print("Chequeos DeepChecks ejecutados:")
-        for check in ["mixed_data_types", "mixed_nulls", "duplicates"]:
-            print(f"  - {check}: OK (ejecutado)")
+        if missing.sum() > 0:
+            problemas.append(f"{name}: {missing.sum()} valores faltantes")
+        if df.duplicated().sum() > 0:
+            problemas.append(f"{name}: {df.duplicated().sum()} filas duplicadas")
+        if df.empty:
+            problemas.append(f"{name}: sin datos")
 
     report = pd.DataFrame(summary_rows)
     output = REPORTS_DIR / "quality_summary.csv"
     report.to_csv(output, index=False)
 
     print(f"\nReporte guardado en: {output}")
+
+    if problemas:
+        raise SystemExit("Problemas de calidad:\n" + "\n".join(problemas))
 
 
 if __name__ == "__main__":

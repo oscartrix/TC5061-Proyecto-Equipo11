@@ -115,6 +115,20 @@ jobs:
             mlflow run . -e register -P question=$q --experiment-name mibici-equipo11 --env-manager local
           done
 
+      - name: Evaluación de calidad contra baselines
+        run: |
+          for q in p1 p2 p3; do
+            mlflow run . -e evaluate -P question="$q" \
+              --experiment-name mibici-equipo11 --env-manager local
+          done
+
+      - name: Guardar reportes de evaluación
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-evaluacion
+          path: reports/evaluation
+
       - name: Inferencia con los modelos champion
         run: |
           for q in p1 p2 p3; do

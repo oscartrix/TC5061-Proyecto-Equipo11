@@ -87,6 +87,8 @@ El detalle completo de la formulación se encuentra en [`references/ml-canvas.md
         ├── train.py         <- Ejecución y registro en MLflow de baselines y modelos candidatos
         ├── search.py        <- Búsqueda de hiperparámetros con nested runs
         ├── register.py      <- Selección del mejor candidato y alias champion en el Model Registry
+        ├── evaluate.py      <- Evaluación del champion contra baselines y registro de reportes
+        ├── evaluation.py    <- Métricas por clase, estación, periodo y cohortes de clustering
         └── predict.py       <- Inferencia con champion y salida CSV o Parquet
 ```
 
@@ -222,6 +224,55 @@ model = mlflow.pyfunc.load_model('models:/mibici-equipo11-p1-demanda@champion')
 
 **Esquema de ciclo de vida.** Se usan *aliases* y no las etapas (*Staging*, *Production*), que MLflow marcó como obsoletas desde la versión 2.9. Un alias es un puntero con nombre a una versión: el código siempre carga `@champion` y promover o revertir un modelo es mover el alias, sin cambiar código ni crear etapas fijas. Además se pueden tener varios alias a la vez (`champion` y `challenger`) y las etiquetas guardan el linaje de cada versión.
 
+### Evaluación de calidad predictiva contra baselines
+
+Después de registrar los modelos, `evaluate` fija la versión del alias `champion` y la compara con su baseline sobre las mismas observaciones. Se ejecuta con el servidor de tracking y `MLFLOW_TRACKING_URI` configurados como en los pasos anteriores:
+
+```bash
+python -m mi_bici.modeling.evaluate --question p1
+python -m mi_bici.modeling.evaluate --question p2
+python -m mi_bici.modeling.evaluate --question p3
+
+# Equivalente con MLflow Projects
+mlflow run . -e evaluate -P question=p1 \
+  --experiment-name mibici-equipo11 --env-manager local
+```
+
+Los archivos de características deben cumplir sus contratos. P1 y P2 evalúan validación y test por separado y requieren ambos conjuntos; se excluyen las filas de entrenamiento. El champion permanece fijo y la evaluación no cambia hiperparámetros, el ranking ni el alias del modelo.
+
+Los reportes CSV y `metadata.json` se guardan en `reports/evaluation/<question>/` (excluido de Git). La opción `--output-dir` permite cambiar el directorio base. Cada ejecución registra los reportes como artefactos `evaluation/` de MLflow, junto con métricas agregadas con prefijo `evaluation_`. Los metadatos identifican la versión concreta del modelo, la corrida de origen, la versión de datos y el baseline.
+
+| Pregunta | Reportes y criterios de lectura |
+|---|---|
+| P1 | `summary.csv`, `by_station.csv`, `by_month.csv`: MAE, RMSE, WAPE y sesgo para modelo y Seasonal Naive (`lag_7d`), con cantidad de observaciones y diferencias contra el baseline |
+| P2 | Los mismos segmentos, más `by_class.csv` y `confusion.csv`: precisión, recall, F1, soporte por clase, déficits no detectados y falsas alertas frente a la regla semanal (`risk_lag_168h`) |
+| P3 | `summary.csv`, `by_cluster.csv`, `stations.csv`, `stability.csv`: silhouette, Davies–Bouldin, tamaños y perfiles de grupos, asignaciones por estación, cambios de uso y estabilidad temporal |
+
+En P1, un `mae_improvement` positivo significa menor error que el baseline. `mae_improvement_pct` expresa la reducción relativa al MAE del baseline. Las predicciones negativas se limitan a cero para puntuar, igual que en entrenamiento; un sesgo positivo indica sobreestimación y uno negativo subestimación. WAPE queda vacío cuando la demanda real total del segmento es cero; la mejora porcentual de MAE queda vacía si el baseline tiene MAE cero.
+
+En P2, `f1_macro_improvement` positivo significa mejor F1 que el baseline. El macro usa siempre las tres clases; las divisiones sin soporte se reportan como cero y deben leerse junto a `support` y `n_deficit`. `missed_deficits_reduction` positivo representa menos déficits omitidos; `false_deficit_alerts_reduction` negativo significa más falsas alertas. `extra_false_alerts_per_avoided_miss` cuantifica las falsas alertas adicionales por observación de déficit adicional detectada, y queda vacío si no se reducen las omisiones. Los conteos corresponden a observaciones estación-hora con horizonte de tres horas, no a incidentes independientes.
+
+Los reportes por estación se ordenan por el deterioro respecto al baseline, primero los segmentos con peor diferencia. Conviene revisar el soporte de cada estación y los resultados mensuales antes de interpretar una mejora agregada.
+
+Para P3, el baseline geográfico se ajusta únicamente con train y usa el número de grupos de `MODEL_DEFAULTS['p3']['baseline']`. Ambos modelos se comparan en el mismo espacio de uso, estandarizado solo con train. `cohort=all` incluye todas las estaciones del periodo; `cohort=common` conserva los mismos IDs en train y holdout. Se reportan número de grupos, estaciones nuevas y tamaño del grupo más grande para contextualizar las métricas. Las métricas de separación indefinidas quedan vacías y se marcan como `undefined_cluster_count`.
+
+`ari_fixed_model` compara las asignaciones del mismo champion entre periodos para estaciones comunes; difiere del `holdout_ari_stability` de entrenamiento, que reajusta el estimador de clustering. Los números de grupo solo tienen significado dentro de cada modelo. La estabilidad del baseline geográfico sería trivial si sus coordenadas no cambian, por lo que no se usa como evidencia de mejora temporal. Además, el holdout de P3 ya participa en el piso de estabilidad del registro: esta comparación es un diagnóstico temporal, no una estimación final independiente.
+
+#### Ejemplo de interpretación de los resultados
+
+Con la versión de datos `a6306ebfef13` y los champions HGB (P1), HGB balanceado (P2) y K-Means de seis grupos (P3), la ejecución local produjo:
+
+| Métrica | Champion | Baseline |
+|---|---:|---:|
+| P1: MAE de test | 5.8974 | 7.4816 |
+| P2: F1 macro de test | 0.5490 | 0.5884 |
+| P2: recall de déficit en test | 0.7751 | 0.4062 |
+| P2: déficits omitidos en test | 2,287 | 6,039 |
+| P2: falsas alertas de déficit en test | 18,885 | 5,833 |
+| P3: silhouette en holdout, estaciones comunes | 0.1659 | 0.0694 |
+
+P1 reduce el MAE global de test 21.17%, aunque 7 de las 469 estaciones evaluadas empeoran; el mayor deterioro corresponde a la estación 51. P2 detecta más déficits a cambio de peor F1 macro y más falsas alertas: su utilidad depende del costo operativo de omitir un déficit frente a movilizar recursos innecesariamente. P3 mejora la separación frente al baseline geográfico de cuatro grupos, pero su silhouette sigue siendo modesto. Estos resultados no equivalen por sí solos a una aprobación de uso operativo.
+
 ### Inferencia con el modelo champion
 
 Después de registrar los modelos, `predict` carga el alias `champion` de la pregunta indicada usando `MLFLOW_TRACKING_URI`. La entrada debe contener las características ya calculadas. Se aceptan archivos CSV y Parquet tanto de entrada como de salida:
@@ -272,6 +323,7 @@ Estructura de `tests/`:
 | `test_train_cli.py`, `test_train_runs.py`, `test_search.py` | Hiperparámetros, corridas de MLflow, búsqueda |
 | `test_reproducibility.py` | Misma semilla, mismas predicciones (Ridge, RF, HGB, K-Means) |
 | `test_predict.py` | Inferencia por CLI con champions en un registro temporal, CSV/Parquet, conservación de filas y errores de entrada |
+| `test_evaluation.py`, `test_evaluate_cli.py` | Comparaciones exactas contra baselines, errores por clase, segmentos temporales, cohortes comunes y artefactos de evaluación en MLflow |
 | `test_contracts.py`, `test_deepchecks.py`, `test_run_validation.py` | Contratos completos, rangos, tipos, claves únicas, condiciones de DeepChecks y archivos requeridos |
 | `test_drift.py` | Drift entre train y test, muestreo reproducible, umbrales y bloqueo con reportes |
 
@@ -329,7 +381,7 @@ Evidencia de la ejecución:
 ![seguridad](docs/evidencia/04_seguridad.png)
 
 ### Integración continua
-El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks, entrenamiento de todos los modelos, dos búsquedas, registro e inferencia con los tres modelos `champion`. Los reportes de validación se suben como artefactos incluso si falla un criterio de aceptación; un error de calidad o drift impide continuar con el entrenamiento. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
+El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks, entrenamiento de todos los modelos, dos búsquedas, registro, evaluación contra baselines e inferencia con los tres modelos `champion`. Los reportes de validación y evaluación se suben como artefactos incluso si falla el paso correspondiente; un error de calidad o drift impide continuar con el entrenamiento. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
 
 ---
 

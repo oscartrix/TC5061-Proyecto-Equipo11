@@ -104,3 +104,4 @@ temp/
 # Reportes generados por validaciones
 reports/data_drift/
 reports/data_quality/
+reports/evaluation/

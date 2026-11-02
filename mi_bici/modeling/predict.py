@@ -19,6 +19,25 @@ from mi_bici.config import MLFLOW_TRACKING_URI, REGISTERED_MODELS
 app = typer.Typer()
 
 
+def predict_features(model, features: pd.DataFrame) -> np.ndarray:
+    """Selecciona las entradas por firma y conserva la alineación de las predicciones."""
+    schema = model.metadata.get_input_schema()
+    if schema is None or not all(isinstance(name, str) for name in schema.input_names()):
+        raise ValueError(
+            'El modelo registrado debe tener una firma de entrada con nombres de columnas.'
+        )
+    missing_columns = [
+        name for name in schema.required_input_names() if name not in features.columns
+    ]
+    if missing_columns:
+        raise ValueError(f'Faltan columnas requeridas por el modelo: {", ".join(missing_columns)}')
+    columns = [name for name in schema.input_names() if name in features.columns]
+    predictions = np.asarray(model.predict(features.loc[:, columns]))
+    if predictions.ndim != 1 or len(predictions) != len(features):
+        raise ValueError('El modelo debe devolver una predicción por fila de entrada.')
+    return predictions
+
+
 def predict_dataset(question: str, features_path: Path, predictions_path: Path) -> pd.DataFrame:
     """Valida la entrada contra la firma del champion y guarda una predicción por fila."""
     if question not in REGISTERED_MODELS:
@@ -47,23 +66,8 @@ def predict_dataset(question: str, features_path: Path, predictions_path: Path) 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     logger.info(f'Cargando modelo {model_uri}')
     model = mlflow.pyfunc.load_model(model_uri)
-    schema = model.metadata.get_input_schema()
-    if schema is None or not all(isinstance(name, str) for name in schema.input_names()):
-        raise ValueError(
-            'El modelo registrado debe tener una firma de entrada con nombres de columnas.'
-        )
-
-    missing_columns = [
-        name for name in schema.required_input_names() if name not in features.columns
-    ]
-    if missing_columns:
-        raise ValueError(f'Faltan columnas requeridas por el modelo: {", ".join(missing_columns)}')
-
     # MLflow valida los tipos, se conservan identificadores y metadatos en la salida.
-    columns = [name for name in schema.input_names() if name in features.columns]
-    predictions = np.asarray(model.predict(features.loc[:, columns]))
-    if predictions.ndim != 1 or len(predictions) != len(features):
-        raise ValueError('El modelo debe devolver una predicción por fila de entrada.')
+    predictions = predict_features(model, features)
     output = features.assign(prediction=predictions)
 
     predictions_path.parent.mkdir(parents=True, exist_ok=True)

@@ -41,5 +41,10 @@ entry_points:
       predictions_path: {type: str}
     command: "python -m mi_bici.modeling.predict --question {question} --features-path {features_path} --predictions-path {predictions_path}"
 
+  evaluate:
+    parameters:
+      question: {type: str, default: "p1"}
+    command: "python -m mi_bici.modeling.evaluate --question {question}"
+
   main:
     command: "python -m mi_bici.dataset && python -m mi_bici.features"

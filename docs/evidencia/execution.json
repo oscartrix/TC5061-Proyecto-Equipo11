@@ -1,0 +1,255 @@
+{
+  "started_at": "2026-11-02T02:56:15+00:00",
+  "python": "3.13.5",
+  "platform": "Linux-6.12.90+deb13.1-arm64-aarch64-with-glibc2.41",
+  "packages": {
+    "pytest": "9.1.1",
+    "deepchecks": "0.19.1",
+    "anywidget": "0.11.0",
+    "setuptools": "80.10.2",
+    "bandit": "1.9.4",
+    "pip-audit": "2.10.1"
+  },
+  "git_commit": "08dbec48441e3223ae076c96dea115b5a4f470f5",
+  "working_tree_status": [
+    " M README.md",
+    " M docs/evidencia/01_pytest.png",
+    " M docs/evidencia/02_deepchecks_calidad.png",
+    " M docs/evidencia/03_deepchecks_drift.png",
+    " M docs/evidencia/04_seguridad.png",
+    " M requirements-test.txt",
+    "?? docs/evidencia/01_pytest.txt",
+    "?? docs/evidencia/02_deepchecks_calidad.txt",
+    "?? docs/evidencia/03_deepchecks_drift.txt",
+    "?? docs/evidencia/04_seguridad.txt",
+    "?? docs/evidencia/05_evaluacion.png",
+    "?? docs/evidencia/05_evaluacion.txt",
+    "?? docs/evidencia/06_inferencia.png",
+    "?? docs/evidencia/06_inferencia.txt",
+    "?? docs/evidencia/environment.txt",
+    "?? docs/evidencia/execution.json",
+    "?? scripts/"
+  ],
+  "requirements_sha256": {
+    "requirements.txt": "95aa0eedb4584c9a8426cfcf65de4ec910a6cdf3f6a17ccfd52cb4feae7034ef",
+    "requirements-test.txt": "453ed92499b923139aef283e216e7ec686f3af070e17ccd2dafb08b0f1d3b59a"
+  },
+  "steps": [
+    {
+      "name": "01_pytest",
+      "started_at": "2026-11-02T02:56:15+00:00",
+      "commands": [
+        {
+          "command": [
+            "/data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python",
+            "-m",
+            "pytest",
+            "-q",
+            "tests",
+            "--disable-warnings"
+          ],
+          "started_at": "2026-11-02T02:56:15+00:00",
+          "finished_at": "2026-11-02T02:56:53+00:00",
+          "exit_code": 0
+        }
+      ],
+      "exit_code": 0,
+      "log_file": "01_pytest.txt",
+      "finished_at": "2026-11-02T02:56:53+00:00",
+      "log_sha256": "892b91ec035ffe08e4e96fb2ead063d53b296d474a28747344d42100c1208f34",
+      "screenshot_file": "01_pytest.png",
+      "screenshot_sha256": "3fe8d914bab73b4e1d4d25f81e3193290106d631f3a03eb8fafcf9f8f1a400ab"
+    },
+    {
+      "name": "02_deepchecks_calidad",
+      "started_at": "2026-11-02T02:56:54+00:00",
+      "commands": [
+        {
+          "command": [
+            "/data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python",
+            "-m",
+            "mi_bici.validation.run_validation"
+          ],
+          "started_at": "2026-11-02T02:56:54+00:00",
+          "finished_at": "2026-11-02T02:57:05+00:00",
+          "exit_code": 0
+        }
+      ],
+      "exit_code": 0,
+      "log_file": "02_deepchecks_calidad.txt",
+      "finished_at": "2026-11-02T02:57:05+00:00",
+      "log_sha256": "fe48cbd7d13c8b2034310f70c2958238d8ef2f48d3ed921f6adb5d758fa965f9",
+      "screenshot_file": "02_deepchecks_calidad.png",
+      "screenshot_sha256": "f26ec6cf12a1000e98c19ef36289458852c84b7c1becc9ea486a7d9e6278d89e"
+    },
+    {
+      "name": "03_deepchecks_drift",
+      "started_at": "2026-11-02T02:57:05+00:00",
+      "commands": [
+        {
+          "command": [
+            "/data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python",
+            "-m",
+            "mi_bici.validation.drift_validation"
+          ],
+          "started_at": "2026-11-02T02:57:05+00:00",
+          "finished_at": "2026-11-02T02:57:09+00:00",
+          "exit_code": 0
+        }
+      ],
+      "exit_code": 0,
+      "log_file": "03_deepchecks_drift.txt",
+      "finished_at": "2026-11-02T02:57:09+00:00",
+      "log_sha256": "7bca82d3069d338746bdc2b78bc8e9180a61ebf8be0ec2198bf07baa2b24b4af",
+      "screenshot_file": "03_deepchecks_drift.png",
+      "screenshot_sha256": "a9474df9d00889d4b1fccabcccf4207ad88c085b1f6a0119befa58fcc6cc7809"
+    },
+    {
+      "name": "04_seguridad",
+      "started_at": "2026-11-02T02:57:10+00:00",
+      "commands": [
+        {
+          "command": [
+            "/data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python",
+            "-m",
+            "bandit",
+            "-r",
+            "mi_bici"
+          ],
+          "started_at": "2026-11-02T02:57:10+00:00",
+          "finished_at": "2026-11-02T02:57:10+00:00",
+          "exit_code": 0
+        },
+        {
+          "command": [
+            "/data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python",
+            "-m",
+            "pip_audit",
+            "-r",
+            "requirements.txt",
+            "--no-deps",
+            "--disable-pip"
+          ],
+          "started_at": "2026-11-02T02:57:10+00:00",
+          "finished_at": "2026-11-02T02:57:11+00:00",
+          "exit_code": 0
+        }
+      ],
+      "exit_code": 0,
+      "log_file": "04_seguridad.txt",
+      "finished_at": "2026-11-02T02:57:11+00:00",
+      "log_sha256": "4090901da313c5e970768c165e99c91b21f4e5b0a8d492753b42df2426d2ad6c",
+      "screenshot_file": "04_seguridad.png",
+      "screenshot_sha256": "8016849957f90a4b8d817d0c3d69ed07bea618d5d866a459d8a87ef4b45e0581"
+    },
+    {
+      "name": "05_evaluacion",
+      "started_at": "2026-11-02T02:57:11+00:00",
+      "commands": [
+        {
+          "command": [
+            "/data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python",
+            "-m",
+            "mi_bici.modeling.evaluate",
+            "--question",
+            "p1"
+          ],
+          "started_at": "2026-11-02T02:57:11+00:00",
+          "finished_at": "2026-11-02T02:57:14+00:00",
+          "exit_code": 0
+        },
+        {
+          "command": [
+            "/data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python",
+            "-m",
+            "mi_bici.modeling.evaluate",
+            "--question",
+            "p2"
+          ],
+          "started_at": "2026-11-02T02:57:14+00:00",
+          "finished_at": "2026-11-02T02:57:23+00:00",
+          "exit_code": 0
+        },
+        {
+          "command": [
+            "/data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python",
+            "-m",
+            "mi_bici.modeling.evaluate",
+            "--question",
+            "p3"
+          ],
+          "started_at": "2026-11-02T02:57:23+00:00",
+          "finished_at": "2026-11-02T02:57:25+00:00",
+          "exit_code": 0
+        }
+      ],
+      "exit_code": 0,
+      "log_file": "05_evaluacion.txt",
+      "finished_at": "2026-11-02T02:57:25+00:00",
+      "log_sha256": "a6b7dc3d088bbdff6c44240939938a99a3196e6815a3ed13c3e04b79ab3d677f",
+      "screenshot_file": "05_evaluacion.png",
+      "screenshot_sha256": "097a4503c834439a86c0e124001931c4c429f531fdeaf143b30e216d2b3d44e9"
+    },
+    {
+      "name": "06_inferencia",
+      "started_at": "2026-11-02T02:57:25+00:00",
+      "commands": [
+        {
+          "command": [
+            "/data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python",
+            "-m",
+            "mi_bici.modeling.predict",
+            "--question",
+            "p1",
+            "--features-path",
+            "data/processed/p1_features.parquet",
+            "--predictions-path",
+            "data/processed/p1_predictions.parquet"
+          ],
+          "started_at": "2026-11-02T02:57:25+00:00",
+          "finished_at": "2026-11-02T02:57:29+00:00",
+          "exit_code": 0
+        },
+        {
+          "command": [
+            "/data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python",
+            "-m",
+            "mi_bici.modeling.predict",
+            "--question",
+            "p2",
+            "--features-path",
+            "data/processed/p2_features.parquet",
+            "--predictions-path",
+            "data/processed/p2_predictions.parquet"
+          ],
+          "started_at": "2026-11-02T02:57:29+00:00",
+          "finished_at": "2026-11-02T02:57:44+00:00",
+          "exit_code": 0
+        },
+        {
+          "command": [
+            "/data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python",
+            "-m",
+            "mi_bici.modeling.predict",
+            "--question",
+            "p3",
+            "--features-path",
+            "data/processed/p3_holdout_features.parquet",
+            "--predictions-path",
+            "data/processed/p3_predictions.parquet"
+          ],
+          "started_at": "2026-11-02T02:57:44+00:00",
+          "finished_at": "2026-11-02T02:57:45+00:00",
+          "exit_code": 0
+        }
+      ],
+      "exit_code": 0,
+      "log_file": "06_inferencia.txt",
+      "finished_at": "2026-11-02T02:57:45+00:00",
+      "log_sha256": "d8c3ba7d2f63ebc100ceb80eec5c0ab016cc56a8903be8c247389e001788861d",
+      "screenshot_file": "06_inferencia.png",
+      "screenshot_sha256": "f3160dabccb61fdc4f2b4f5f488840a6a5ef9eac2e4598481e185a7fc95ef368"
+    }
+  ],
+  "finished_at": "2026-11-02T02:57:46+00:00"
+}

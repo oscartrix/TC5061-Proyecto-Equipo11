@@ -1,0 +1,23 @@
+$ /data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python -m mi_bici.modeling.predict --question p1 --features-path data/processed/p1_features.parquet --predictions-path data/processed/p1_predictions.parquet
+2026-11-01 20:57:25.839 | INFO     | mi_bici.config:<module>:12 - PROJ_ROOT path is: /data/scratch/mlops/TC5061-Proyecto-Equipo11
+2026/11/01 20:57:26 INFO mlflow.agent.hint: Load the `instrumenting-with-mlflow-tracing` skill at /data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/lib/python3.13/site-packages/mlflow/assistant/skills/instrumenting-with-mlflow-tracing/SKILL.md before writing any tracing code; it ships with this MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.
+[32m2026-11-01 20:57:26.508[0m | [1mINFO    [0m | [36m__main__[0m:[36mpredict_dataset[0m:[36m67[0m - [1mCargando modelo models:/mibici-equipo11-p1-demanda@champion[0m
+[32m2026-11-01 20:57:28.871[0m | [32m[1mSUCCESS [0m | [36m__main__[0m:[36mpredict_dataset[0m:[36m78[0m - [32m[1m366,601 predicciones guardadas en data/processed/p1_predictions.parquet[0m
+
+[exit_code=0]
+
+$ /data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python -m mi_bici.modeling.predict --question p2 --features-path data/processed/p2_features.parquet --predictions-path data/processed/p2_predictions.parquet
+2026-11-01 20:57:29.324 | INFO     | mi_bici.config:<module>:12 - PROJ_ROOT path is: /data/scratch/mlops/TC5061-Proyecto-Equipo11
+2026/11/01 20:57:29 INFO mlflow.agent.hint: Load the `instrumenting-with-mlflow-tracing` skill at /data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/lib/python3.13/site-packages/mlflow/assistant/skills/instrumenting-with-mlflow-tracing/SKILL.md before writing any tracing code; it ships with this MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.
+[32m2026-11-01 20:57:30.334[0m | [1mINFO    [0m | [36m__main__[0m:[36mpredict_dataset[0m:[36m67[0m - [1mCargando modelo models:/mibici-equipo11-p2-riesgo@champion[0m
+[32m2026-11-01 20:57:43.572[0m | [32m[1mSUCCESS [0m | [36m__main__[0m:[36mpredict_dataset[0m:[36m78[0m - [32m[1m1,187,850 predicciones guardadas en data/processed/p2_predictions.parquet[0m
+
+[exit_code=0]
+
+$ /data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python -m mi_bici.modeling.predict --question p3 --features-path data/processed/p3_holdout_features.parquet --predictions-path data/processed/p3_predictions.parquet
+2026-11-01 20:57:44.053 | INFO     | mi_bici.config:<module>:12 - PROJ_ROOT path is: /data/scratch/mlops/TC5061-Proyecto-Equipo11
+2026/11/01 20:57:44 INFO mlflow.agent.hint: Load the `instrumenting-with-mlflow-tracing` skill at /data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/lib/python3.13/site-packages/mlflow/assistant/skills/instrumenting-with-mlflow-tracing/SKILL.md before writing any tracing code; it ships with this MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.
+[32m2026-11-01 20:57:44.673[0m | [1mINFO    [0m | [36m__main__[0m:[36mpredict_dataset[0m:[36m67[0m - [1mCargando modelo models:/mibici-equipo11-p3-grupos@champion[0m
+[32m2026-11-01 20:57:45.445[0m | [32m[1mSUCCESS [0m | [36m__main__[0m:[36mpredict_dataset[0m:[36m78[0m - [32m[1m469 predicciones guardadas en data/processed/p3_predictions.parquet[0m
+
+[exit_code=0]

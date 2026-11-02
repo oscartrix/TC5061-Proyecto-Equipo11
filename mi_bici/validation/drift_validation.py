@@ -10,8 +10,10 @@ if not hasattr(np, "Inf"):
 
 from deepchecks.tabular import Dataset
 from deepchecks.tabular.checks import FeatureDrift
+from deepchecks.core import CheckFailure
 
 from mi_bici.config import (
+    DRIFT_THRESHOLDS,
     P1_FEATURES_PATH,
     P2_FEATURES_PATH,
     P3_TRAIN_FEATURES_PATH,
@@ -22,6 +24,49 @@ from mi_bici.config import (
 
 SAMPLE_SIZE = 5000
 OUTPUT_DIR = REPORTS_DIR / "data_drift"
+
+
+def apply_drift_policy(report, thresholds=None):
+    """Clasifica cada característica con umbrales inclusivos por método."""
+    thresholds = DRIFT_THRESHOLDS if thresholds is None else thresholds
+    if report.empty:
+        raise ValueError('El reporte de drift no puede estar vacío.')
+    for method in report['method'].unique():
+        if method not in thresholds:
+            raise ValueError(f'No hay umbrales de drift para el método {method}.')
+        warning = thresholds[method]['warning']
+        error = thresholds[method]['error']
+        if not 0 <= warning < error <= 1:
+            raise ValueError(
+                f'Umbrales inválidos para {method}: se requiere 0 <= warning < error <= 1.'
+            )
+
+    result = report.copy()
+    result['warning_threshold'] = result['method'].map(lambda m: thresholds[m]['warning'])
+    result['error_threshold'] = result['method'].map(lambda m: thresholds[m]['error'])
+    result['status'] = 'pass'
+    scores = result['drift_score']
+    result.loc[scores >= result['warning_threshold'], 'status'] = 'warning'
+    result.loc[scores >= result['error_threshold'], 'status'] = 'error'
+    # Un cálculo inválido nunca debe interpretarse como ausencia de drift.
+    invalid = ~np.isfinite(scores) | ~scores.between(0, 1)
+    result.loc[invalid, 'status'] = 'error'
+    return result
+
+
+def enforce_drift_policy(report):
+    """Emite advertencias y detiene el comando cuando hay drift por encima del límite."""
+    for row in report.loc[report['status'] == 'warning'].itertuples():
+        print(f'ADVERTENCIA: {row.dataset}.{row.feature}: drift={row.drift_score:.4f} '
+              f'(umbral={row.warning_threshold:.2f})')
+    errors = report.loc[report['status'] == 'error']
+    if not errors.empty:
+        details = [
+            f'{row.dataset}.{row.feature}: drift={row.drift_score} '
+            f'(límite={row.error_threshold:.2f}; el score debe ser finito y estar entre 0 y 1)'
+            for row in errors.itertuples()
+        ]
+        raise SystemExit('Drift no aceptable:\n' + '\n'.join(details))
 
 
 def sample_data(df):
@@ -65,6 +110,8 @@ def validate_drift(name, train, test, categorical_features):
     result.save_as_html(str(html_path))
 
     print(f"Reporte HTML guardado en: {html_path}")
+    if isinstance(result, CheckFailure):
+        raise ValueError(f'{name}: no se pudo calcular el drift: {result.exception}')
 
     rows = []
 
@@ -78,13 +125,13 @@ def validate_drift(name, train, test, categorical_features):
             "test_samples": len(test),
         })
 
-    report = pd.DataFrame(rows)
+    report = apply_drift_policy(pd.DataFrame(rows))
     report = report.sort_values(
         "drift_score",
         ascending=False,
     )
 
-    print(report[["feature", "drift_score", "method"]].to_string(
+    print(report[["feature", "drift_score", "method", "status"]].to_string(
         index=False
     ))
 
@@ -168,6 +215,7 @@ def main():
     final_report.to_csv(output, index=False)
 
     print(f"\nReporte guardado en: {output}")
+    enforce_drift_policy(final_report)
 
 
 if __name__ == "__main__":

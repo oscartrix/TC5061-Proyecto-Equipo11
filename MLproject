@@ -34,5 +34,12 @@ entry_points:
       question: {type: str, default: "p1"}
     command: "python -m mi_bici.modeling.register --question {question}"
 
+  predict:
+    parameters:
+      question: {type: str, default: "p1"}
+      features_path: {type: path}
+      predictions_path: {type: str}
+    command: "python -m mi_bici.modeling.predict --question {question} --features-path {features_path} --predictions-path {predictions_path}"
+
   main:
     command: "python -m mi_bici.dataset && python -m mi_bici.features"

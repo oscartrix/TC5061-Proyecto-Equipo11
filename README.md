@@ -87,7 +87,7 @@ El detalle completo de la formulación se encuentra en [`references/ml-canvas.md
         ├── train.py         <- Ejecución y registro en MLflow de baselines y modelos candidatos
         ├── search.py        <- Búsqueda de hiperparámetros con nested runs
         ├── register.py      <- Selección del mejor candidato y alias champion en el Model Registry
-        └── predict.py       <- Módulo base para inferencia
+        └── predict.py       <- Inferencia con champion y salida CSV o Parquet
 ```
 
 ---
@@ -222,6 +222,31 @@ model = mlflow.pyfunc.load_model('models:/mibici-equipo11-p1-demanda@champion')
 
 **Esquema de ciclo de vida.** Se usan *aliases* y no las etapas (*Staging*, *Production*), que MLflow marcó como obsoletas desde la versión 2.9. Un alias es un puntero con nombre a una versión: el código siempre carga `@champion` y promover o revertir un modelo es mover el alias, sin cambiar código ni crear etapas fijas. Además se pueden tener varios alias a la vez (`champion` y `challenger`) y las etiquetas guardan el linaje de cada versión.
 
+### Inferencia con el modelo champion
+
+Después de registrar los modelos, `predict` carga el alias `champion` de la pregunta indicada usando `MLFLOW_TRACKING_URI`. La entrada debe contener las características ya calculadas. Se aceptan archivos CSV y Parquet tanto de entrada como de salida:
+
+```bash
+python -m mi_bici.modeling.predict --question p1 \
+  --features-path data/processed/p1_features.parquet \
+  --predictions-path data/processed/p1_predictions.parquet
+```
+
+El comando verifica las columnas requeridas contra la firma del modelo y MLflow valida sus tipos. Predice todas las filas del archivo recibido y guarda las columnas originales, en el mismo orden de filas, más `prediction`: demanda para P1, clase de riesgo para P2 o grupo para P3. Si falta el modelo o alguna columna requerida, los tipos son incompatibles o la entrada está vacía, termina con error antes de escribir la salida. La ruta de salida debe ser distinta de la entrada y la entrada no debe contener una columna `prediction` previa.
+
+También está disponible como entry point de MLflow Projects:
+
+```bash
+mlflow run . -e predict -P question=p2 \
+  -P features_path=data/processed/p2_features.parquet \
+  -P predictions_path=data/processed/p2_predictions.csv \
+  --experiment-name mibici-equipo11 --env-manager local
+
+python -m mi_bici.modeling.predict --question p3 \
+  --features-path data/processed/p3_holdout_features.parquet \
+  --predictions-path data/processed/p3_predictions.parquet
+```
+
 ### Paso 8: Pruebas, validación de datos y seguridad
 
 Entorno de pruebas (además de `requirements.txt`):
@@ -246,6 +271,7 @@ Estructura de `tests/`:
 | `test_features.py` | Festivos, partición temporal en sus límites, características P1 sin fuga |
 | `test_train_cli.py`, `test_train_runs.py`, `test_search.py` | Hiperparámetros, corridas de MLflow, búsqueda |
 | `test_reproducibility.py` | Misma semilla, mismas predicciones (Ridge, RF, HGB, K-Means) |
+| `test_predict.py` | Inferencia por CLI con champions en un registro temporal, CSV/Parquet, conservación de filas y errores de entrada |
 | `test_deepchecks.py`, `test_run_validation.py` | Nulos, duplicados, tipos y presencia de todos los archivos requeridos para validar |
 | `test_drift.py` | Drift entre train y test, muestreo reproducible |
 
@@ -261,7 +287,7 @@ Evidencia de la ejecución:
 ![seguridad](docs/evidencia/04_seguridad.png)
 
 ### Integración continua
-El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks (los reportes se guardan como artefacto), entrenamiento de todos los modelos, dos búsquedas, registro y carga de los tres modelos `champion`. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
+El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks (los reportes se guardan como artefacto), entrenamiento de todos los modelos, dos búsquedas, registro e inferencia con los tres modelos `champion`. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
 
 ---
 

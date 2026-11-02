@@ -51,7 +51,8 @@ def test_missing_datasets_fail_before_validation(validation_files, monkeypatch, 
     for name in missing:
         assert name in message
         assert str(paths[name]) in message
-    assert 'features' in message
+    assert 'ingesta' in message
+    assert 'generación de características' in message
     assert not reports_dir.exists()
 
 

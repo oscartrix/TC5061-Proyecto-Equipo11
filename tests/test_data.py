@@ -21,8 +21,27 @@ def test_validate_header_variants():
     validate_header(cols_variant)
 
 
+@pytest.mark.parametrize('defect', ['missing', 'extra', 'name', 'order'])
+def test_validate_header_rejects_invalid_contract(defect):
+    columns = list(TRIP_SOURCE_COLUMNS)
+    if defect == 'missing':
+        columns.pop()
+    elif defect == 'extra':
+        columns.append('Extra')
+    elif defect == 'name':
+        columns[0] = 'Id_incorrecto'
+    else:
+        columns[-1], columns[-2] = columns[-2], columns[-1]
+    with pytest.raises(ValueError):
+        validate_header(columns)
+
+
 def test_parse_datetime_mixed_formats():
-    s = pd.Series(['01/09/2024 0:00', '01/09/2024 10:15'])
+    s = pd.Series(['2024-09-01 10:15:00', '02/09/2024 11:45', None], index=[5, 3, 9])
     parsed, fmt = parse_datetime(s)
-    assert parsed.notna().all()
-    assert fmt == '%d/%m/%Y %H:%M'
+    expected = pd.Series(
+        [pd.Timestamp('2024-09-01 10:15'), pd.Timestamp('2024-09-02 11:45'), pd.NaT],
+        index=s.index,
+    )
+    pd.testing.assert_series_equal(parsed, expected)
+    assert fmt == '%Y-%m-%d %H:%M:%S+%d/%m/%Y %H:%M'

@@ -267,13 +267,21 @@ Estructura de `tests/`:
 
 | Archivo | Cubre |
 |---|---|
-| `test_data.py`, `test_readers.py` | Encabezados, encoding, fechas mixtas, rangos `AAAA-MM` |
-| `test_features.py` | Festivos, partición temporal en sus límites, características P1 sin fuga |
+| `test_data.py`, `test_readers.py` | Contratos de encabezados, encodings, fechas mixtas y erróneas, limpieza de viajes y exclusión de datos personales |
+| `test_features.py` | Rezagos y medias exactos por estación, causalidad temporal P1/P2, selección de estaciones solo con train y perfiles P3 |
 | `test_train_cli.py`, `test_train_runs.py`, `test_search.py` | Hiperparámetros, corridas de MLflow, búsqueda |
 | `test_reproducibility.py` | Misma semilla, mismas predicciones (Ridge, RF, HGB, K-Means) |
 | `test_predict.py` | Inferencia por CLI con champions en un registro temporal, CSV/Parquet, conservación de filas y errores de entrada |
 | `test_contracts.py`, `test_deepchecks.py`, `test_run_validation.py` | Contratos completos, rangos, tipos, claves únicas, condiciones de DeepChecks y archivos requeridos |
 | `test_drift.py` | Drift entre train y test, muestreo reproducible, umbrales y bloqueo con reportes |
+
+Las pruebas de características usan conteos variables y estaciones con patrones distintos. En P1 verifican valores exactos de los cuatro rezagos y la media móvil, días sin viajes, estaciones nuevas y el límite de 21 días de historial. Cambiar los viajes del día actual o posteriores debe conservar los predictores pasados. En P2 se comprueba que modificar viajes futuros cambie el objetivo de tres horas, pero conserve los predictores disponibles en el corte, y que la actividad de 2026 no altere la selección de estaciones basada en entrenamiento. Los perfiles P3 cubren duraciones límite, proporciones y estaciones sin llegadas.
+
+Para ejecutar solo estas pruebas de características y lectura:
+
+```bash
+python -m pytest -q tests/test_features.py tests/test_readers.py tests/test_data.py
+```
 
 `run_validation` exige los cuatro archivos de características: P1, P2, P3 train y P3 holdout. Si falta alguno, termina con error antes de validar o generar el reporte, enumera las rutas faltantes e indica que se debe ejecutar la ingesta y la generación de características.
 

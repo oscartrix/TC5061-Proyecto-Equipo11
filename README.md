@@ -246,10 +246,10 @@ Estructura de `tests/`:
 | `test_features.py` | Festivos, partición temporal en sus límites, características P1 sin fuga |
 | `test_train_cli.py`, `test_train_runs.py`, `test_search.py` | Hiperparámetros, corridas de MLflow, búsqueda |
 | `test_reproducibility.py` | Misma semilla, mismas predicciones (Ridge, RF, HGB, K-Means) |
-| `test_deepchecks.py` | Nulos, duplicados y tipos sobre datos con problemas conocidos |
+| `test_deepchecks.py`, `test_run_validation.py` | Nulos, duplicados, tipos y presencia de todos los archivos requeridos para validar |
 | `test_drift.py` | Drift entre train y test, muestreo reproducible |
 
-`run_validation` termina con error si algún conjunto trae valores faltantes, duplicados o está vacío. Los reportes quedan en `reports/data_quality/` y `reports/data_drift/` (no se versionan). Drift observado (Kolmogorov-Smirnov, train contra test): P1 en `month` (0.49), P3 en `total_arrs` y `total_deps` (0.48); P2 sin drift relevante (máximo 0.06).
+`run_validation` exige los cuatro archivos de características: P1, P2, P3 train y P3 holdout. Si falta alguno, termina con error antes de validar o generar el reporte, enumera las rutas faltantes e indica que se debe ejecutar la ingesta y la generación de características. También termina con error si algún conjunto trae valores faltantes, duplicados o está vacío. Los reportes quedan en `reports/data_quality/` y `reports/data_drift/` (no se versionan). Drift observado (Kolmogorov-Smirnov, train contra test): P1 en `month` (0.49), P3 en `total_arrs` y `total_deps` (0.48); P2 sin drift relevante (máximo 0.06).
 
 Seguridad: no hay credenciales en el repositorio. La única configuración externa es `MLFLOW_TRACKING_URI`, que se lee del entorno (ver `.env.example`); `.env`, `mlflow.db`, `mlartifacts/` y los datos están en `.gitignore`. `bandit` no reporta hallazgos y `pip-audit` no reporta vulnerabilidades.
 

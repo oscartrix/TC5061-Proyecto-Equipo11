@@ -18,8 +18,6 @@ REPORTS_DIR = Path("reports") / "data_quality"
 
 
 def main():
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-
     datasets = {
         "P1": P1_FEATURES_PATH,
         "P2": P2_FEATURES_PATH,
@@ -27,15 +25,25 @@ def main():
         "P3_holdout": P3_HOLDOUT_FEATURES_PATH,
     }
 
+    missing_files = [
+        f"{name}: {path}"
+        for name, path in datasets.items()
+        if not path.is_file()
+    ]
+    if missing_files:
+        raise SystemExit(
+            "Faltan archivos de datos requeridos:\n"
+            + "\n".join(missing_files)
+            + "\nEjecuta la ingesta y la generación de características antes de validar."
+        )
+
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
     summary_rows = []
     problemas = []
 
     for name, path in datasets.items():
         print(f"\n===== VALIDANDO {name} =====")
-
-        if not path.exists():
-            print(f"Archivo no encontrado: {path}")
-            continue
 
         df = pd.read_parquet(path)
 

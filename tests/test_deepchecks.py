@@ -3,6 +3,7 @@
 
 import numpy as np
 import pandas as pd
+from deepchecks.core import CheckFailure
 
 from mi_bici.validation.deepchecks_validation import validate_data_quality
 
@@ -57,4 +58,29 @@ def test_deepchecks_data_quality():
     # Verificar los tipos de datos
     assert summary["column_types"]["station_id"] == "int64"
     assert summary["column_types"]["capacity"] == "float64"
+    assert not results['mixed_nulls'].passed_conditions()
+    assert not results['duplicates'].passed_conditions()
+    assert any('mixed_nulls' in error for error in results['errors'])
+    assert any('duplicates' in error for error in results['errors'])
+
+
+def test_mixed_types_fail_deepchecks_condition():
+    result = validate_data_quality(pd.DataFrame({'value': [1, 2, 'incorrecto', 3, 4, 5]}))
+    assert not result['mixed_data_types'].passed_conditions()
+    assert any('mixed_data_types' in error for error in result['errors'])
+
+
+def test_clean_data_passes_deepchecks_conditions():
+    result = validate_data_quality(pd.DataFrame({'value': range(10)}))
+    assert result['errors'] == []
+
+
+def test_deepchecks_execution_failure_is_reported(monkeypatch):
+    from mi_bici.validation import deepchecks_validation
+
+    monkeypatch.setattr(deepchecks_validation.MixedNulls, 'run', lambda self, dataset:
+                        CheckFailure(self, RuntimeError('chequeo no disponible')))
+    result = validate_data_quality(pd.DataFrame({'value': range(10)}))
+    assert any('mixed_nulls' in error and 'chequeo no disponible' in error
+               for error in result['errors'])
 

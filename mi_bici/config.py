@@ -48,6 +48,12 @@ MLFLOW_TRACKING_URI = os.getenv('MLFLOW_TRACKING_URI', 'http://127.0.0.1:5000')
 MLFLOW_BACKEND_STORE_URI = f'sqlite:///{PROJ_ROOT / "mlflow.db"}'
 TEAM_NAME = 'equipo11'
 
+# Ajustar con evidencia de validación y criterios operativos
+DRIFT_THRESHOLDS = {
+    'Kolmogorov-Smirnov': {'warning': 0.20, 'error': 0.50},
+    "Cramer's V": {'warning': 0.20, 'error': 0.50},
+}
+
 # Modelos disponibles por pregunta y sus hiperparámetros por default
 MODEL_DEFAULTS = {
     'p1': {

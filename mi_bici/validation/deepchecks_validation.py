@@ -8,6 +8,7 @@ if not hasattr(np, "Inf"):
     np.Inf = np.inf
 
 from deepchecks.tabular import Dataset
+from deepchecks.core import CheckFailure
 from deepchecks.tabular.checks import (
     MixedDataTypes,
     MixedNulls,
@@ -24,15 +25,20 @@ def validate_data_quality(df: pd.DataFrame):
     dataset = Dataset(df, cat_features=[])
 
     checks = {
-        "mixed_data_types": MixedDataTypes(),
-        "mixed_nulls": MixedNulls(),
-        "duplicates": DataDuplicates(),
+        "mixed_data_types": MixedDataTypes().add_condition_rare_type_ratio_not_in_range((0, 1)),
+        "mixed_nulls": MixedNulls().add_condition_different_nulls_less_equal_to(0),
+        "duplicates": DataDuplicates().add_condition_ratio_less_or_equal(0),
     }
 
-    results = {}
+    results = {"errors": []}
 
     for name, check in checks.items():
-        results[name] = check.run(dataset)
+        result = check.run(dataset)
+        results[name] = result
+        if isinstance(result, CheckFailure):
+            results["errors"].append(f"DeepChecks {name}: {result.exception}")
+        elif not result.passed_conditions(fail_if_warning=True):
+            results["errors"].append(f"DeepChecks {name}: condición de aceptación incumplida")
     
     # Resumen explícito de calidad de datos
     results["summary"] = {
@@ -52,7 +58,7 @@ def validate_data_quality(df: pd.DataFrame):
         result = results[name]
 
         print(f"\nChequeo: {name}")
-        print(result.value)
+        print(result.exception if isinstance(result, CheckFailure) else result.value)
 
 
     return results

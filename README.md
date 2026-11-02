@@ -272,10 +272,44 @@ Estructura de `tests/`:
 | `test_train_cli.py`, `test_train_runs.py`, `test_search.py` | Hiperparámetros, corridas de MLflow, búsqueda |
 | `test_reproducibility.py` | Misma semilla, mismas predicciones (Ridge, RF, HGB, K-Means) |
 | `test_predict.py` | Inferencia por CLI con champions en un registro temporal, CSV/Parquet, conservación de filas y errores de entrada |
-| `test_deepchecks.py`, `test_run_validation.py` | Nulos, duplicados, tipos y presencia de todos los archivos requeridos para validar |
-| `test_drift.py` | Drift entre train y test, muestreo reproducible |
+| `test_contracts.py`, `test_deepchecks.py`, `test_run_validation.py` | Contratos completos, rangos, tipos, claves únicas, condiciones de DeepChecks y archivos requeridos |
+| `test_drift.py` | Drift entre train y test, muestreo reproducible, umbrales y bloqueo con reportes |
 
-`run_validation` exige los cuatro archivos de características: P1, P2, P3 train y P3 holdout. Si falta alguno, termina con error antes de validar o generar el reporte, enumera las rutas faltantes e indica que se debe ejecutar la ingesta y la generación de características. También termina con error si algún conjunto trae valores faltantes, duplicados o está vacío. Los reportes quedan en `reports/data_quality/` y `reports/data_drift/` (no se versionan). Drift observado (Kolmogorov-Smirnov, train contra test): P1 en `month` (0.49), P3 en `total_arrs` y `total_deps` (0.48); P2 sin drift relevante (máximo 0.06).
+`run_validation` exige los cuatro archivos de características: P1, P2, P3 train y P3 holdout. Si falta alguno, termina con error antes de validar o generar el reporte, enumera las rutas faltantes e indica que se debe ejecutar la ingesta y la generación de características.
+
+#### Contratos de calidad
+
+Los contratos están declarados en [`mi_bici/validation/contracts.py`](mi_bici/validation/contracts.py). Se evalúan sobre **todas las filas**: columnas exactas (faltantes y adicionales son errores), tipos nativos o nullable de pandas, ausencia de nulos y valores numéricos finitos. Los tipos se comprueban sin convertir ni corregir los datos. Todos los conjuntos deben tener datos, IDs enteros positivos, capacidad entera positiva y textos no vacíos.
+
+| Conjunto | Clave única | Restricciones adicionales |
+|---|---|---|
+| P1 | `station_id`, `date` | Conteos y rezagos no negativos; mes 1–12, día de semana 0–6, indicadores 0/1 |
+| P2 | `station_id`, `hour_ts` | Llegadas y salidas no negativas; hora 0–23; clases `deficit`, `balanceado` o `excedente`; los flujos y presiones pueden ser negativos |
+| P3 train/holdout | `station_id` | Latitud −90–90, longitud −180–180, proporciones 0–1, duración mediana 1–180 minutos; estaciones activas y sin prefijo `ex-` según sus indicadores booleanos |
+
+Las fechas de P1 y P2 deben ser datetime sin zona horaria dentro de `START_MONTH`–`END_MONTH`; `split` admite `train`, `val` y `test`. Las claves duplicadas se rechazan aunque otras columnas sean distintas. Si el contrato pasa, se ejecutan condiciones de DeepChecks sobre una muestra reproducible de hasta 5,000 filas: cero tipos mezclados, cero tipos de valores nulos reconocidos por DeepChecks y cero duplicados. Una condición incumplida o un fallo del chequeo detiene la validación.
+
+Los resultados quedan en `reports/data_quality/quality_summary.csv`, con estado `pass` o `error`, y los incumplimientos en `quality_errors.csv`. Los reportes se escriben antes de terminar con error por calidad.
+
+#### Política de drift
+
+[`DRIFT_THRESHOLDS` en `mi_bici/config.py`](mi_bici/config.py) define los umbrales por método. Son valores iniciales configurables: deben calibrarse con evidencia de validación y criterios operativos del proyecto.
+
+| Método | Advertir y continuar | Detener el pipeline |
+|---|---|---|
+| Kolmogorov-Smirnov | `0.20 <= score < 0.50` | `score >= 0.50` |
+| Cramer's V | `0.20 <= score < 0.50` | `score >= 0.50` |
+
+Un score menor que 0.20 tiene estado `pass`; las advertencias tienen estado `warning` y los bloqueos `error`. Un score no finito o fuera de 0–1 también bloquea. La configuración exige `0 <= warning < error <= 1` y un método desconocido produce error. Cada fila de `reports/data_drift/drift_summary.csv` conserva el método, el score, ambos umbrales y el estado. El CSV consolidado y los reportes HTML se guardan antes de detener el comando por drift.
+
+Con los datos actuales se emiten advertencias por P1 en `month` (0.49) y P3 en `total_arrs` y `total_deps` (0.48); P2 permanece por debajo del umbral de advertencia (máximo 0.06). Los reportes no se versionan.
+
+Sin `make`, los mismos chequeos se ejecutan con:
+
+```bash
+python -m mi_bici.validation.run_validation
+python -m mi_bici.validation.drift_validation
+```
 
 Seguridad: no hay credenciales en el repositorio. La única configuración externa es `MLFLOW_TRACKING_URI`, que se lee del entorno (ver `.env.example`); `.env`, `mlflow.db`, `mlartifacts/` y los datos están en `.gitignore`. `bandit` no reporta hallazgos y `pip-audit` no reporta vulnerabilidades.
 
@@ -287,7 +321,7 @@ Evidencia de la ejecución:
 ![seguridad](docs/evidencia/04_seguridad.png)
 
 ### Integración continua
-El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks (los reportes se guardan como artefacto), entrenamiento de todos los modelos, dos búsquedas, registro e inferencia con los tres modelos `champion`. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
+El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks, entrenamiento de todos los modelos, dos búsquedas, registro e inferencia con los tres modelos `champion`. Los reportes de validación se suben como artefactos incluso si falla un criterio de aceptación; un error de calidad o drift impide continuar con el entrenamiento. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
 
 ---
 

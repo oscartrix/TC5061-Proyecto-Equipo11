@@ -114,11 +114,15 @@ jobs:
             mlflow run . -e register -P question=$q --experiment-name mibici-equipo11 --env-manager local
           done
 
-      - name: Cargar los modelos champion por nombre y alias
+      - name: Inferencia con los modelos champion
         run: |
-          python - <<'PY'
-          import mlflow
-          for name in ['p1-demanda', 'p2-riesgo', 'p3-grupos']:
-              model = mlflow.pyfunc.load_model(f'models:/mibici-equipo11-{name}@champion')
-              print(name, model.metadata.signature is not None)
-          PY
+          for q in p1 p2 p3; do
+            features_path="data/processed/${q}_features.parquet"
+            if [ "$q" = p3 ]; then
+              features_path="data/processed/p3_holdout_features.parquet"
+            fi
+            mlflow run . -e predict -P question="$q" \
+              -P features_path="$features_path" \
+              -P predictions_path="data/processed/${q}_predictions.parquet" \
+              --experiment-name mibici-equipo11 --env-manager local
+          done

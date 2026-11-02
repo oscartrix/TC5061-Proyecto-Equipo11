@@ -1,0 +1,63 @@
+$ /data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python -m mi_bici.validation.drift_validation
+2026-11-01 20:57:05.926 | INFO     | mi_bici.config:<module>:12 - PROJ_ROOT path is: /data/scratch/mlops/TC5061-Proyecto-Equipo11
+/data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/lib/python3.13/site-packages/deepchecks/core/serialization/dataframe/html.py:16: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  from pkg_resources import parse_version
+
+===== DATA DRIFT P1 =====
+Reporte HTML guardado en: /data/scratch/mlops/TC5061-Proyecto-Equipo11/reports/data_drift/p1_drift_report.html
+        feature  drift_score             method  status
+          month     0.490600 Kolmogorov-Smirnov warning
+        lag_21d     0.119200 Kolmogorov-Smirnov    pass
+        lag_14d     0.113800 Kolmogorov-Smirnov    pass
+rolling_mean_7d     0.107600 Kolmogorov-Smirnov    pass
+         lag_1d     0.099000 Kolmogorov-Smirnov    pass
+         lag_7d     0.097400 Kolmogorov-Smirnov    pass
+       capacity     0.049400 Kolmogorov-Smirnov    pass
+    day_of_week     0.020800 Kolmogorov-Smirnov    pass
+           zone     0.018473         Cramer's V    pass
+     is_weekend     0.014400 Kolmogorov-Smirnov    pass
+     is_holiday     0.011000 Kolmogorov-Smirnov    pass
+
+===== DATA DRIFT P2 =====
+Reporte HTML guardado en: /data/scratch/mlops/TC5061-Proyecto-Equipo11/reports/data_drift/p2_drift_report.html
+                 feature  drift_score             method status
+           risk_lag_168h     0.062599         Cramer's V   pass
+pressure_window_lag_336h     0.054400 Kolmogorov-Smirnov   pass
+pressure_window_lag_168h     0.049400 Kolmogorov-Smirnov   pass
+ pressure_window_lag_24h     0.043800 Kolmogorov-Smirnov   pass
+          pressure_ratio     0.041000 Kolmogorov-Smirnov   pass
+        pressure_last_3h     0.037000 Kolmogorov-Smirnov   pass
+        net_flow_last_3h     0.034200 Kolmogorov-Smirnov   pass
+              departures     0.026200 Kolmogorov-Smirnov   pass
+                net_flow     0.022200 Kolmogorov-Smirnov   pass
+             day_of_week     0.021800 Kolmogorov-Smirnov   pass
+              is_weekend     0.019800 Kolmogorov-Smirnov   pass
+                capacity     0.014600 Kolmogorov-Smirnov   pass
+                    hour     0.014200 Kolmogorov-Smirnov   pass
+                arrivals     0.013800 Kolmogorov-Smirnov   pass
+                    zone     0.000000         Cramer's V   pass
+
+===== DATA DRIFT P3 =====
+Reporte HTML guardado en: /data/scratch/mlops/TC5061-Proyecto-Equipo11/reports/data_drift/p3_drift_report.html
+            feature  drift_score             method  status
+         total_arrs     0.488353 Kolmogorov-Smirnov warning
+         total_deps     0.477934 Kolmogorov-Smirnov warning
+    avg_daily_trips     0.192582 Kolmogorov-Smirnov    pass
+        dep_weekend     0.154323 Kolmogorov-Smirnov    pass
+        dep_evening     0.118035 Kolmogorov-Smirnov    pass
+median_duration_min     0.094581 Kolmogorov-Smirnov    pass
+      dep_arr_ratio     0.091121 Kolmogorov-Smirnov    pass
+        dep_morning     0.077403 Kolmogorov-Smirnov    pass
+     round_trip_pct     0.076518 Kolmogorov-Smirnov    pass
+         dep_midday     0.059018 Kolmogorov-Smirnov    pass
+           capacity     0.052862 Kolmogorov-Smirnov    pass
+               zone     0.000000         Cramer's V    pass
+              is_ex     0.000000         Cramer's V    pass
+          is_active     0.000000         Cramer's V    pass
+
+Reporte guardado en: /data/scratch/mlops/TC5061-Proyecto-Equipo11/reports/data_drift/drift_summary.csv
+ADVERTENCIA: P1.month: drift=0.4906 (umbral=0.20)
+ADVERTENCIA: P3.total_arrs: drift=0.4884 (umbral=0.20)
+ADVERTENCIA: P3.total_deps: drift=0.4779 (umbral=0.20)
+
+[exit_code=0]

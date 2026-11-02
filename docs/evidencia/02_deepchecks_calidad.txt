@@ -1,0 +1,147 @@
+$ /data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/bin/python -m mi_bici.validation.run_validation
+2026-11-01 20:56:54.209 | INFO     | mi_bici.config:<module>:12 - PROJ_ROOT path is: /data/scratch/mlops/TC5061-Proyecto-Equipo11
+/data/scratch/mlops/TC5061-Proyecto-Equipo11/.venv/lib/python3.13/site-packages/deepchecks/core/serialization/dataframe/html.py:16: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  from pkg_resources import parse_version
+
+===== VALIDANDO P1 =====
+
+===== RESULTADOS DE DEEPCHECKS =====
+
+Chequeo: mixed_data_types
+{'station_id': {}, 'date': {}, 'trips_count': {}, 'capacity': {}, 'zone': {}, 'lag_1d': {}, 'lag_7d': {}, 'lag_14d': {}, 'lag_21d': {}, 'rolling_mean_7d': {}, 'day_of_week': {}, 'month': {}, 'is_weekend': {}, 'is_holiday': {}, 'split': {}}
+
+Chequeo: mixed_nulls
+{'n_samples': 5000, 'columns': {'station_id': {}, 'date': {}, 'trips_count': {}, 'capacity': {}, 'zone': {}, 'lag_1d': {}, 'lag_7d': {}, 'lag_14d': {}, 'lag_21d': {}, 'rolling_mean_7d': {}, 'day_of_week': {}, 'month': {}, 'is_weekend': {}, 'is_holiday': {}, 'split': {}}, 'feature_importance': station_id         NaN
+date               NaN
+trips_count        NaN
+capacity           NaN
+zone               NaN
+lag_1d             NaN
+lag_7d             NaN
+lag_14d            NaN
+lag_21d            NaN
+rolling_mean_7d    NaN
+day_of_week        NaN
+month              NaN
+is_weekend         NaN
+is_holiday         NaN
+split              NaN
+dtype: object}
+
+Chequeo: duplicates
+0.0
+Registros totales: 366,601
+Columnas: 15
+Filas duplicadas: 0
+Valores faltantes totales: 0
+
+===== VALIDANDO P2 =====
+
+===== RESULTADOS DE DEEPCHECKS =====
+
+Chequeo: mixed_data_types
+{'station_id': {}, 'hour_ts': {}, 'departures': {}, 'arrivals': {}, 'capacity': {}, 'zone': {}, 'net_flow': {}, 'future_3h_net_flow': {}, 'pressure_ratio': {}, 'risk_class': {}, 'net_flow_last_3h': {}, 'pressure_last_3h': {}, 'pressure_window_lag_24h': {}, 'pressure_window_lag_168h': {}, 'pressure_window_lag_336h': {}, 'risk_lag_168h': {}, 'hour': {}, 'day_of_week': {}, 'is_weekend': {}, 'split': {}}
+
+Chequeo: mixed_nulls
+{'n_samples': 5000, 'columns': {'station_id': {}, 'hour_ts': {}, 'departures': {}, 'arrivals': {}, 'capacity': {}, 'zone': {}, 'net_flow': {}, 'future_3h_net_flow': {}, 'pressure_ratio': {}, 'risk_class': {}, 'net_flow_last_3h': {}, 'pressure_last_3h': {}, 'pressure_window_lag_24h': {}, 'pressure_window_lag_168h': {}, 'pressure_window_lag_336h': {}, 'risk_lag_168h': {}, 'hour': {}, 'day_of_week': {}, 'is_weekend': {}, 'split': {}}, 'feature_importance': station_id                  NaN
+hour_ts                     NaN
+departures                  NaN
+arrivals                    NaN
+capacity                    NaN
+zone                        NaN
+net_flow                    NaN
+future_3h_net_flow          NaN
+pressure_ratio              NaN
+risk_class                  NaN
+net_flow_last_3h            NaN
+pressure_last_3h            NaN
+pressure_window_lag_24h     NaN
+pressure_window_lag_168h    NaN
+pressure_window_lag_336h    NaN
+risk_lag_168h               NaN
+hour                        NaN
+day_of_week                 NaN
+is_weekend                  NaN
+split                       NaN
+dtype: object}
+
+Chequeo: duplicates
+0.0
+Registros totales: 1,187,850
+Columnas: 20
+Filas duplicadas: 0
+Valores faltantes totales: 0
+
+===== VALIDANDO P3_train =====
+
+===== RESULTADOS DE DEEPCHECKS =====
+
+Chequeo: mixed_data_types
+{'station_id': {}, 'name': {}, 'latitude': {}, 'longitude': {}, 'capacity': {}, 'zone': {}, 'is_ex': {}, 'is_active': {}, 'total_deps': {}, 'dep_morning': {}, 'dep_midday': {}, 'dep_evening': {}, 'dep_weekend': {}, 'median_duration_min': {}, 'round_trip_pct': {}, 'total_arrs': {}, 'avg_daily_trips': {}, 'dep_arr_ratio': {}}
+
+Chequeo: mixed_nulls
+{'n_samples': 371, 'columns': {'station_id': {}, 'name': {}, 'latitude': {}, 'longitude': {}, 'capacity': {}, 'zone': {}, 'is_ex': {}, 'is_active': {}, 'total_deps': {}, 'dep_morning': {}, 'dep_midday': {}, 'dep_evening': {}, 'dep_weekend': {}, 'median_duration_min': {}, 'round_trip_pct': {}, 'total_arrs': {}, 'avg_daily_trips': {}, 'dep_arr_ratio': {}}, 'feature_importance': station_id             NaN
+name                   NaN
+latitude               NaN
+longitude              NaN
+capacity               NaN
+zone                   NaN
+is_ex                  NaN
+is_active              NaN
+total_deps             NaN
+dep_morning            NaN
+dep_midday             NaN
+dep_evening            NaN
+dep_weekend            NaN
+median_duration_min    NaN
+round_trip_pct         NaN
+total_arrs             NaN
+avg_daily_trips        NaN
+dep_arr_ratio          NaN
+dtype: object}
+
+Chequeo: duplicates
+0.0
+Registros totales: 371
+Columnas: 18
+Filas duplicadas: 0
+Valores faltantes totales: 0
+
+===== VALIDANDO P3_holdout =====
+
+===== RESULTADOS DE DEEPCHECKS =====
+
+Chequeo: mixed_data_types
+{'station_id': {}, 'name': {}, 'latitude': {}, 'longitude': {}, 'capacity': {}, 'zone': {}, 'is_ex': {}, 'is_active': {}, 'total_deps': {}, 'dep_morning': {}, 'dep_midday': {}, 'dep_evening': {}, 'dep_weekend': {}, 'median_duration_min': {}, 'round_trip_pct': {}, 'total_arrs': {}, 'avg_daily_trips': {}, 'dep_arr_ratio': {}}
+
+Chequeo: mixed_nulls
+{'n_samples': 469, 'columns': {'station_id': {}, 'name': {}, 'latitude': {}, 'longitude': {}, 'capacity': {}, 'zone': {}, 'is_ex': {}, 'is_active': {}, 'total_deps': {}, 'dep_morning': {}, 'dep_midday': {}, 'dep_evening': {}, 'dep_weekend': {}, 'median_duration_min': {}, 'round_trip_pct': {}, 'total_arrs': {}, 'avg_daily_trips': {}, 'dep_arr_ratio': {}}, 'feature_importance': station_id             NaN
+name                   NaN
+latitude               NaN
+longitude              NaN
+capacity               NaN
+zone                   NaN
+is_ex                  NaN
+is_active              NaN
+total_deps             NaN
+dep_morning            NaN
+dep_midday             NaN
+dep_evening            NaN
+dep_weekend            NaN
+median_duration_min    NaN
+round_trip_pct         NaN
+total_arrs             NaN
+avg_daily_trips        NaN
+dep_arr_ratio          NaN
+dtype: object}
+
+Chequeo: duplicates
+0.0
+Registros totales: 469
+Columnas: 18
+Filas duplicadas: 0
+Valores faltantes totales: 0
+
+Reporte guardado en: reports/data_quality/quality_summary.csv
+
+[exit_code=0]

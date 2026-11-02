@@ -307,6 +307,8 @@ pip install -r requirements.txt -r requirements-test.txt
 pip install -e . --no-deps
 ```
 
+Las herramientas directas de pruebas y seguridad tienen versiones fijas en `requirements-test.txt`: pytest 9.1.1, DeepChecks 0.19.1, anywidget 0.11.0, Bandit 1.9.4 y pip-audit 2.10.1. Se usa setuptools 80.10.2, verificado con la dependencia `pkg_resources` de DeepChecks. El entorno completo de la ejecución de evidencia queda registrado en [`environment.txt`](docs/evidencia/environment.txt).
+
 | Comando | Qué hace |
 |---|---|
 | `make test` | Corre todo `tests/` con pytest |
@@ -371,14 +373,53 @@ python -m mi_bici.validation.run_validation
 python -m mi_bici.validation.drift_validation
 ```
 
-Seguridad: no hay credenciales en el repositorio. La única configuración externa es `MLFLOW_TRACKING_URI`, que se lee del entorno (ver `.env.example`); `.env`, `mlflow.db`, `mlartifacts/` y los datos están en `.gitignore`. `bandit` no reporta hallazgos y `pip-audit` no reporta vulnerabilidades.
+La configuración externa `MLFLOW_TRACKING_URI` se lee del entorno (ver `.env.example`); `.env`, `mlflow.db`, `mlartifacts/` y los datos están en `.gitignore`. La auditoría de seguridad cubre `mi_bici/` con Bandit y el archivo `requirements.txt` completo con pip-audit, **incluida Pillow**. En la ejecución registrada, ambas herramientas terminaron con código 0 y sin hallazgos o vulnerabilidades conocidas reportadas en ese alcance.
 
-Evidencia de la ejecución:
+Sin `make`, la seguridad se comprueba con:
 
-![pytest](docs/evidencia/01_pytest.png)
-![calidad](docs/evidencia/02_deepchecks_calidad.png)
-![drift](docs/evidencia/03_deepchecks_drift.png)
-![seguridad](docs/evidencia/04_seguridad.png)
+```bash
+python -m bandit -r mi_bici
+python -m pip_audit -r requirements.txt --no-deps --disable-pip
+```
+
+#### Evidencia reproducible
+
+[`scripts/collect_evidence.py`](scripts/collect_evidence.py) ejecuta los comandos reales y guarda sus salidas completas, versiones, fechas UTC y códigos de salida. [`execution.json`](docs/evidencia/execution.json) registra el commit base, los cambios locales presentes al iniciar y los hashes SHA-256 de requisitos, registros y capturas. Las imágenes son capturas de un visor HTML de esos registros y de resúmenes calculados desde los reportes; los archivos `.txt` conservan la salida completa. La captura de drift muestra explícitamente las advertencias que permiten continuar.
+
+Con el entorno de Python activo y los datos procesados disponibles:
+
+```bash
+# Pruebas, calidad, drift y seguridad; guarda registros y entorno.
+python scripts/collect_evidence.py
+
+# También genera capturas; requiere Chromium o Google Chrome disponible en PATH.
+python scripts/collect_evidence.py --screenshots
+
+# Incluye evaluación e inferencia; requiere el tracking configurado y los tres champions.
+python scripts/collect_evidence.py --screenshots --include-models
+```
+
+Si un comando falla, se registra su código y el colector termina con error. Las capturas de fallos conservan la salida completa. Por defecto, los resultados se escriben en `docs/evidencia/`; `--output-dir` permite elegir otro directorio. Los datos crudos y procesados permanecen excluidos de Git.
+
+La evidencia actual usa **Python 3.13.5**:
+
+| Etapa | Resultado | Registro completo |
+|---|---|---|
+| PyTest | 224 pruebas aprobadas, 15 advertencias | [01_pytest.txt](docs/evidencia/01_pytest.txt) |
+| Calidad | P1: 366,601 filas; P2: 1,187,850; P3: 371/469 estaciones; contratos aceptados | [02_deepchecks_calidad.txt](docs/evidencia/02_deepchecks_calidad.txt) |
+| Drift | 37 características en `pass`, 3 en `warning`, ninguna en `error` | [03_deepchecks_drift.txt](docs/evidencia/03_deepchecks_drift.txt) |
+| Seguridad | Bandit sin hallazgos y pip-audit sin vulnerabilidades conocidas reportadas | [04_seguridad.txt](docs/evidencia/04_seguridad.txt) |
+| Evaluación | Comparaciones de P1, P2 y P3 contra baselines | [05_evaluacion.txt](docs/evidencia/05_evaluacion.txt) |
+| Inferencia | 366,601 / 1,187,850 / 469 predicciones para P1 / P2 / P3 | [06_inferencia.txt](docs/evidencia/06_inferencia.txt) |
+
+La ingesta completa descargó 1,070.1 MB de CSV de 33 meses. Durante la generación de características se observó más de 4 GiB de memoria en el grupo de procesos de prueba, que se ejecutó con un límite de 6 GiB. Estas mediciones describen la ejecución local y ayudan a dimensionar el entorno.
+
+![PyTest con Python 3.13.5](docs/evidencia/01_pytest.png)
+![Contratos y calidad de datos](docs/evidencia/02_deepchecks_calidad.png)
+![Drift con umbrales y advertencias](docs/evidencia/03_deepchecks_drift.png)
+![Bandit y auditoría completa de requirements.txt](docs/evidencia/04_seguridad.png)
+![Evaluación de champions frente a baselines](docs/evidencia/05_evaluacion.png)
+![Inferencia con los tres champions](docs/evidencia/06_inferencia.png)
 
 ### Integración continua
 El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks, entrenamiento de todos los modelos, dos búsquedas, registro, evaluación contra baselines e inferencia con los tres modelos `champion`. Los reportes de validación y evaluación se suben como artefactos incluso si falla el paso correspondiente; un error de calidad o drift impide continuar con el entrenamiento. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.

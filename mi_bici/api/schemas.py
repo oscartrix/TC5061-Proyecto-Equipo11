@@ -65,6 +65,20 @@ class PredictionRequest(BaseModel):
     instances: list[P1Features] = Field(min_length=1, max_length=MAX_INSTANCES)
 
 
+class HealthResponse(BaseModel):
+    status: Literal['ok'] = 'ok'
+
+
+class ModelInfoResponse(BaseModel):
+    """Modelo que está sirviendo la API."""
+
+    model_config = ConfigDict(extra='forbid')
+
+    model_name: str = Field(min_length=1, description='Nombre en el Model Registry')
+    model_version: str = Field(min_length=1, description='Versión en el Model Registry')
+    run_id: str | None = Field(default=None, description='Corrida de MLflow que generó el modelo')
+
+
 class PredictionResponse(BaseModel):
     """Predicciones y versión concreta del modelo que las generó."""
 

@@ -466,7 +466,20 @@ Variables del contenedor:
 | `MODEL_PATH` | `/app/models/p1_champion` | Carpeta del modelo dentro de la imagen |
 | `MLFLOW_TRACKING_URI` | sin definir | Solo si se quita `MODEL_PATH`: la API carga `MODEL_NAME`@`MODEL_ALIAS` del registry (por ejemplo `http://host.docker.internal:5000`; en Podman, `host.containers.internal`) |
 
+Captura de la API respondiendo desde el contenedor: `docs/evidencia/api/06_swagger_contenedor.png`; el resto de las capturas y registros están en la misma carpeta, y el reporte en `docs/TC5061_Reporte_Despliegue_Equipo11.pdf`. Comparación con ONNX Runtime: `docs/analisis_onnx.md`.
+
 Estrategia de despliegue: inferencia en tiempo real. La demanda del día siguiente se consulta por estación y las filas ya vienen calculadas (rezagos y calendario), por lo que una respuesta síncrona por petición es suficiente; para recalcular todas las estaciones se envían hasta 500 filas por llamada. Se incrusta el modelo en la imagen para que la versión servida quede fija y la imagen funcione igual en cualquier máquina.
+
+#### Inferencia con ONNX Runtime (opcional)
+
+```bash
+pip install -r requirements-onnx.txt
+python scripts/export_onnx.py --model-dir models/p1_champion
+python scripts/benchmark_inference.py
+INFERENCE_BACKEND=onnx MODEL_PATH=models/p1_champion uvicorn mi_bici.api.main:app
+```
+
+`export_onnx.py` guarda `model.onnx` junto al modelo y compara sus predicciones con las de sklearn. Sin `INFERENCE_BACKEND`, la API sigue usando sklearn. Con el HGB actual, ONNX trabaja en float32 y en algunas filas la predicción cambia; ver `week-8/analisis_onnx.md`.
 
 ### Paso 8: Pruebas, validación de datos y seguridad
 

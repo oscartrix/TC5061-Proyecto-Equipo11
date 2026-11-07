@@ -198,3 +198,23 @@ def test_unreachable_server_raises_clear_error(monkeypatch):
     monkeypatch.setenv('MLFLOW_HTTP_REQUEST_TIMEOUT', '2')
     with pytest.raises(ModelLoadError, match=uri):
         load_served_model(ModelSettings(NAME))
+
+
+def test_load_served_model_from_local_path(tmp_path, monkeypatch):
+    import mlflow.sklearn
+    from mlflow.models import infer_signature
+    from sklearn.linear_model import LinearRegression
+
+    from mi_bici.api.model import load_served_model
+
+    x = pd.DataFrame({'a': [1.0, 2.0, 3.0], 'b': [2.0, 1.0, 0.0]})
+    reg = LinearRegression().fit(x, [1.0, 2.0, 3.0])
+    path = tmp_path / 'modelo'
+    mlflow.sklearn.save_model(reg, path, signature=infer_signature(x, reg.predict(x)))
+    (path / 'registry.txt').write_text('mi-modelo\n3\nrun-abc\n')
+    monkeypatch.setenv('MODEL_PATH', str(path))
+
+    served = load_served_model()
+
+    assert (served.name, served.version, served.run_id) == ('mi-modelo', '3', 'run-abc')
+    assert len(served.predict(x)) == 3

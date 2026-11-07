@@ -298,6 +298,139 @@ python -m mi_bici.modeling.predict --question p3 \
   --predictions-path data/processed/p3_predictions.parquet
 ```
 
+### API de predicción
+
+La API sirve el modelo de P1. Para usarla, el servidor de tracking debe estar activo y el modelo debe estar registrado:
+
+```bash
+export MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+uvicorn mi_bici.api.main:app --host 127.0.0.1 --port 8000
+```
+
+La documentación esta en <http://127.0.0.1:8000/docs>.
+
+Por defecto se carga el alias `champion`. Se puede elegir otro modelo con `MODEL_NAME`, `MODEL_ALIAS` o `MODEL_VERSION`; si `MODEL_VERSION` tiene valor, se ignora `MODEL_ALIAS`.
+
+Los valores de las predicciones y la versión del modelo pueden cambiar según el registry de cada equipo.
+
+#### Predecir una fila
+
+```bash
+curl -X POST http://127.0.0.1:8000/p1/predict \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "instances": [
+      {
+        "lag_1d": 12.0,
+        "lag_7d": 11.0,
+        "lag_14d": 3.0,
+        "lag_21d": 4.0,
+        "rolling_mean_7d": 11.857143,
+        "capacity": 19,
+        "day_of_week": 2,
+        "month": 9,
+        "is_weekend": 0,
+        "is_holiday": 0,
+        "zone": "ZPN"
+      }
+    ]
+  }'
+```
+
+Respuesta (`200`):
+
+```json
+{
+  "model_name": "mibici-equipo11-p1-demanda",
+  "model_version": "1",
+  "predictions": [10.707358365638806]
+}
+```
+
+#### Predecir varias filas
+
+Cada petición acepta de 1 a 500 filas. Las predicciones llegan en el mismo orden que las filas:
+
+```bash
+curl -X POST http://127.0.0.1:8000/p1/predict \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "instances": [
+      {"lag_1d": 12.0, "lag_7d": 11.0, "lag_14d": 3.0, "lag_21d": 4.0, "rolling_mean_7d": 11.857143, "capacity": 19, "day_of_week": 2, "month": 9, "is_weekend": 0, "is_holiday": 0, "zone": "ZPN"},
+      {"lag_1d": 40.0, "lag_7d": 35.0, "lag_14d": 38.0, "lag_21d": 33.0, "rolling_mean_7d": 36.5, "capacity": 25, "day_of_week": 5, "month": 3, "is_weekend": 1, "is_holiday": 0, "zone": "GDL"}
+    ]
+  }'
+```
+
+Respuesta (`200`):
+
+```json
+{
+  "model_name": "mibici-equipo11-p1-demanda",
+  "model_version": "1",
+  "predictions": [10.707358365638806, 32.464989857292]
+}
+```
+
+#### Hacer la petición con Python
+
+```python
+import requests
+
+row = {
+    'lag_1d': 12.0,
+    'lag_7d': 11.0,
+    'lag_14d': 3.0,
+    'lag_21d': 4.0,
+    'rolling_mean_7d': 11.857143,
+    'capacity': 19,
+    'day_of_week': 2,
+    'month': 9,
+    'is_weekend': 0,
+    'is_holiday': 0,
+    'zone': 'ZPN',
+}
+
+response = requests.post(
+    'http://127.0.0.1:8000/p1/predict',
+    json={'instances': [row]},
+    timeout=30,
+)
+response.raise_for_status()
+print(response.json()['predictions'])  # [10.707358365638806]
+```
+
+#### Campos de cada fila
+
+| Campo | Tipo | Valores válidos | Significado |
+|---|---|---|---|
+| `lag_1d`, `lag_7d`, `lag_14d`, `lag_21d` | número | 0 o más | Viajes de la estación hace 1, 7, 14 y 21 días |
+| `rolling_mean_7d` | número | 0 o más | Media de viajes de los 7 días previos |
+| `capacity` | entero | 1 o más | Anclajes de la estación |
+| `day_of_week` | entero | 0 a 6 | Día de la semana: 0 es lunes, 6 es domingo |
+| `month` | entero | 1 a 12 | Mes del año |
+| `is_weekend` | entero | 0 o 1 | 1 si `day_of_week` es 5 o 6; debe coincidir con ese campo |
+| `is_holiday` | entero | 0 o 1 | 1 si el día es festivo en México |
+| `zone` | texto | `GDL`, `ZPN`, `TLQ` | Zona de la estación |
+
+Todos los campos son obligatorios y no se aceptan campos adicionales, como `station_id` o `date`.
+
+#### Respuesta con datos inválidos
+
+Si una fila no cumple estas reglas, la API responde `422` e indica la fila y el campo con error. Por ejemplo, con `"month": 13` en la primera fila:
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "instances", 0, "month"],
+      "msg": "Input should be less than or equal to 12",
+      "type": "less_than_equal"
+    }
+  ]
+}
+```
+
 ### Paso 8: Pruebas, validación de datos y seguridad
 
 Entorno de pruebas (además de `requirements.txt`):

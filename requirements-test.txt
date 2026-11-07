@@ -1,5 +1,6 @@
 # Dependencias extra para pruebas, validación de datos y seguridad
 pytest==9.1.1
+httpx==0.28.1
 deepchecks==0.19.1
 anywidget==0.11.0
 # Versión verificada con pkg_resources para DeepChecks 0.19.1.

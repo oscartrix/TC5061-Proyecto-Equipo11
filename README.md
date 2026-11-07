@@ -468,6 +468,17 @@ Variables del contenedor:
 
 Estrategia de despliegue: inferencia en tiempo real. La demanda del día siguiente se consulta por estación y las filas ya vienen calculadas (rezagos y calendario), por lo que una respuesta síncrona por petición es suficiente; para recalcular todas las estaciones se envían hasta 500 filas por llamada. Se incrusta el modelo en la imagen para que la versión servida quede fija y la imagen funcione igual en cualquier máquina.
 
+#### Inferencia con ONNX Runtime (opcional)
+
+```bash
+pip install -r requirements-onnx.txt
+python scripts/export_onnx.py --model-dir models/p1_champion
+python scripts/benchmark_inference.py
+INFERENCE_BACKEND=onnx MODEL_PATH=models/p1_champion uvicorn mi_bici.api.main:app
+```
+
+`export_onnx.py` guarda `model.onnx` junto al modelo y compara sus predicciones con las de sklearn. Sin `INFERENCE_BACKEND`, la API sigue usando sklearn. Con el HGB actual, ONNX trabaja en float32 y en algunas filas la predicción cambia; ver `week-8/analisis_onnx.md`.
+
 ### Paso 8: Pruebas, validación de datos y seguridad
 
 Entorno de pruebas (además de `requirements.txt`):

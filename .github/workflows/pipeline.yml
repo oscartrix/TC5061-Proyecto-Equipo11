@@ -30,7 +30,7 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          pip install -r requirements.txt -r requirements-test.txt
+          pip install -r requirements.txt -r requirements-test.txt -r requirements-onnx.txt
           pip install -e . --no-deps
 
       - name: Pruebas
@@ -60,7 +60,7 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          pip install -r requirements.txt -r requirements-test.txt
+          pip install -r requirements.txt -r requirements-test.txt -r requirements-onnx.txt
           pip install -e . --no-deps
 
       - name: Revisar que no se versionen datos ni artefactos de MLflow

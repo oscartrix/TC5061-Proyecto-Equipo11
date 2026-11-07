@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import os
+from pathlib import Path
 
 from loguru import logger
 import mlflow
@@ -67,7 +68,26 @@ def align_features(features: pd.DataFrame, model: PyFuncModel) -> pd.DataFrame:
     return features.astype(dtypes)
 
 
+def load_local_model(path: Path) -> ServedModel:
+    """Carga el modelo descargado del registry y empaquetado en la imagen."""
+    try:
+        model = mlflow.pyfunc.load_model(str(path))
+    except (MlflowException, OSError) as error:
+        raise ModelLoadError(f'No se pudo cargar el modelo de {path}: {error}') from error
+    schema = model.metadata.get_input_schema()
+    if schema is None or not schema.has_input_names():
+        raise ModelLoadError(f'El modelo de {path} no tiene una firma con nombres de columnas.')
+    # export_model.py guarda aquí el nombre, la versión y la corrida de origen
+    info = (path / 'registry.txt').read_text().split() if (path / 'registry.txt').is_file() else []
+    name, version, run_id = (info + ['desconocido', '0', ''])[:3] if len(info) < 3 else info[:3]
+    logger.info(f'Modelo local cargado: {name} v{version}')
+    return ServedModel(name, version, run_id or None, model)
+
+
 def load_served_model(settings: ModelSettings | None = None) -> ServedModel:
+    local_path = os.getenv('MODEL_PATH')
+    if local_path and Path(local_path).is_dir():
+        return load_local_model(Path(local_path))
     settings = settings or ModelSettings.from_env()
     client = MlflowClient(MLFLOW_TRACKING_URI)
     try:

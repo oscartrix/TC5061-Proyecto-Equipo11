@@ -5,6 +5,7 @@
 PROJECT_NAME = mi-bici
 PYTHON_VERSION = 3.13
 PYTHON_INTERPRETER = python
+CONTAINER_ENGINE ?= docker
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -120,6 +121,24 @@ train-all:
 		mlflow run . -e train -P question=$${spec%%:*} -P model=$${spec#*:} \
 			--experiment-name $(MLFLOW_EXPERIMENT_NAME) --env-manager $(ENV_MANAGER) || exit 1; \
 	done
+
+
+## Descargar el champion de P1 para la imagen de la API
+.PHONY: api-model
+api-model:
+	$(PYTHON_INTERPRETER) scripts/export_model.py --question p1 --output models/p1_champion
+
+
+## Construir la imagen de la API (docker o podman)
+.PHONY: api-build
+api-build:
+	$(CONTAINER_ENGINE) build -f Containerfile -t mibici-api .
+
+
+## Levantar la API en el puerto 8000
+.PHONY: api-run
+api-run:
+	$(CONTAINER_ENGINE) run --rm -p 8000:8000 mibici-api
 
 
 #################################################################################

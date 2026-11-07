@@ -431,6 +431,43 @@ Si una fila no cumple estas reglas, la API responde `422` e indica la fila y el 
 }
 ```
 
+### API en contenedor
+
+La imagen se construye con el `Containerfile` (el `Dockerfile` existente sigue levantando el servidor de MLflow). El modelo champion de P1 se descarga del Model Registry antes de construir y se copia dentro de la imagen, así el contenedor no necesita el servidor de MLflow para arrancar. Si hay que cambiar de modelo, se vuelve a exportar y a construir la imagen.
+
+Con Docker:
+
+```bash
+export MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+python scripts/export_model.py --question p1 --output models/p1_champion
+docker build -f Containerfile -t mibici-api .
+docker run --rm -p 8000:8000 mibici-api
+```
+
+Con Podman los comandos son los mismos, cambiando `docker` por `podman` (o `make api-build CONTAINER_ENGINE=podman`).
+
+Prueba del servicio:
+
+```bash
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/model-info
+curl -X POST http://127.0.0.1:8000/p1/predict -H 'Content-Type: application/json' \
+  -d '{"instances":[{"lag_1d":12.0,"lag_7d":11.0,"lag_14d":3.0,"lag_21d":4.0,"rolling_mean_7d":11.857143,"capacity":19,"day_of_week":2,"month":9,"is_weekend":0,"is_holiday":0,"zone":"ZPN"}]}'
+```
+
+```json
+{"model_name":"mibici-equipo11-p1-demanda","model_version":"1","predictions":[10.182341634926482]}
+```
+
+Variables del contenedor:
+
+| Variable | Valor por defecto | Uso |
+|---|---|---|
+| `MODEL_PATH` | `/app/models/p1_champion` | Carpeta del modelo dentro de la imagen |
+| `MLFLOW_TRACKING_URI` | sin definir | Solo si se quita `MODEL_PATH`: la API carga `MODEL_NAME`@`MODEL_ALIAS` del registry (por ejemplo `http://host.docker.internal:5000`; en Podman, `host.containers.internal`) |
+
+Estrategia de despliegue: inferencia en tiempo real. La demanda del día siguiente se consulta por estación y las filas ya vienen calculadas (rezagos y calendario), por lo que una respuesta síncrona por petición es suficiente; para recalcular todas las estaciones se envían hasta 500 filas por llamada. Se incrusta el modelo en la imagen para que la versión servida quede fija y la imagen funcione igual en cualquier máquina.
+
 ### Paso 8: Pruebas, validación de datos y seguridad
 
 Entorno de pruebas (además de `requirements.txt`):

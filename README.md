@@ -466,6 +466,8 @@ Variables del contenedor:
 | `MODEL_PATH` | `/app/models/p1_champion` | Carpeta del modelo dentro de la imagen |
 | `MLFLOW_TRACKING_URI` | sin definir | Solo si se quita `MODEL_PATH`: la API carga `MODEL_NAME`@`MODEL_ALIAS` del registry (por ejemplo `http://host.docker.internal:5000`; en Podman, `host.containers.internal`) |
 
+Capturas de la construcción, el contenedor y las peticiones: `docs/evidencia/api/`. Comparación con ONNX Runtime: `docs/analisis_onnx.md`.
+
 Estrategia de despliegue: inferencia en tiempo real. La demanda del día siguiente se consulta por estación y las filas ya vienen calculadas (rezagos y calendario), por lo que una respuesta síncrona por petición es suficiente; para recalcular todas las estaciones se envían hasta 500 filas por llamada. Se incrusta el modelo en la imagen para que la versión servida quede fija y la imagen funcione igual en cualquier máquina.
 
 ### Paso 8: Pruebas, validación de datos y seguridad

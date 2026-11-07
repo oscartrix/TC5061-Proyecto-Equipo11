@@ -1,0 +1,11 @@
+$ docker run -d --name mibici-api -p 8000:8000 mibici-api
+596ec7e2e943
+$ docker ps
+NAMES        IMAGE        STATUS                    PORTS
+mibici-api   mibici-api   Up 10 seconds (healthy)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+$ docker logs mibici-api
+INFO:     Waiting for application startup.
+2026-11-07 00:34:18.558 | INFO     | mi_bici.api.model:load_local_model:83 - Modelo local cargado: mibici-equipo11-p1-demanda v1
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+imagen mibici-api 815MB

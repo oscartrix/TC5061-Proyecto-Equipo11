@@ -87,6 +87,10 @@ def load_local_model(path: Path) -> ServedModel:
 def load_served_model(settings: ModelSettings | None = None) -> ServedModel:
     local_path = os.getenv('MODEL_PATH')
     if local_path and Path(local_path).is_dir():
+        if os.getenv('INFERENCE_BACKEND', 'sklearn') == 'onnx':
+            from mi_bici.api.onnx_model import load_onnx_model
+
+            return load_onnx_model(Path(local_path))
         return load_local_model(Path(local_path))
     settings = settings or ModelSettings.from_env()
     client = MlflowClient(MLFLOW_TRACKING_URI)

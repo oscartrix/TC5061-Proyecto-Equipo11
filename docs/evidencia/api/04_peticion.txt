@@ -1,0 +1,10 @@
+$ curl http://127.0.0.1:8000/health
+{"status":"ok"}
+$ curl http://127.0.0.1:8000/model-info
+{"model_name":"mibici-equipo11-p1-demanda","model_version":"1","run_id":"8b2ba4b2a00f4ccc9ec1422132f55c19"}
+$ curl -X POST http://127.0.0.1:8000/p1/predict -H 'Content-Type: application/json' -d '{"instances":[{"lag_1d":12.0,"lag_7d":11.0,"lag_14d":3.0,"lag_21d":4.0,"rolling_mean_7d":11.857143,"capacity":19,"day_of_week":2,"month":9,"is_weekend":0,"is_holiday":0,"zone":"ZPN"}]}'
+{"model_name":"mibici-equipo11-p1-demanda","model_version":"1","predictions":[10.182341634926482]}
+HTTP 200
+$ curl -X POST http://127.0.0.1:8000/p1/predict -d '{"instances":[{"month":13}]}'
+{"detail":[{"loc":["body","instances",0,"lag_1d"],"msg":"Field required","type":"missing"},{"loc":["body","instances",0,"lag_7d"],"msg":"Field required","type":"missing"},{"loc":["body","instances",0,"lag_14d"],"msg":"Field required","type":"missing"},{"loc":["body","instances",0,"lag_21d"],"msg":"Field required","type":"missing"},{"loc":["body","instances",0,"rolling_mean_7d"],"msg":"Field required","type":"missing"},{"loc":["body","instances",0,"capacity"],"msg":"Field required","type":"missing"},{"loc":["body","instances",0,"day_of_week"],"msg":"Field required","type":"missing"},{"loc":["body","instances",0,"month"],"msg":"Input should be less than or equal to 12","type":"less_than_equal"},{"loc":["body","instances",0,"is_weekend"],"msg":"Field required","type":"missing"},{"loc":["body","instances",0,"is_holiday"],"msg":"Field required","type":"missing"},{"loc":["body","instances",0,"zone"],"msg":"Field required","type":"missing"}]}
+HTTP 422

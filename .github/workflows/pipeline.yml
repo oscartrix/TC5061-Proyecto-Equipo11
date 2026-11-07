@@ -30,7 +30,7 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          pip install -r requirements.txt -r requirements-test.txt
+          pip install -r requirements.txt -r requirements-test.txt -r requirements-onnx.txt
           pip install -e . --no-deps
 
       - name: Pruebas
@@ -60,7 +60,7 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          pip install -r requirements.txt -r requirements-test.txt
+          pip install -r requirements.txt -r requirements-test.txt -r requirements-onnx.txt
           pip install -e . --no-deps
 
       - name: Revisar que no se versionen datos ni artefactos de MLflow
@@ -141,3 +141,37 @@ jobs:
               -P predictions_path="data/processed/${q}_predictions.parquet" \
               --experiment-name mibici-equipo11 --env-manager local
           done
+
+      - name: Exportar el champion de P1
+        run: python scripts/export_model.py --question p1 --output models/p1_champion
+
+      - name: Construir la imagen de la API
+        run: docker build -f Containerfile -t mibici-api .
+
+      - name: Levantar el contenedor
+        run: |
+          docker run -d --name mibici-api -p 8000:8000 mibici-api
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8000/health && exit 0
+            sleep 2
+          done
+          docker logs mibici-api
+          exit 1
+
+      - name: Probar la API del contenedor
+        run: |
+          row='{"lag_1d":12.0,"lag_7d":11.0,"lag_14d":3.0,"lag_21d":4.0,"rolling_mean_7d":11.857143,"capacity":19,"day_of_week":2,"month":9,"is_weekend":0,"is_holiday":0,"zone":"ZPN"}'
+          code=$(curl -s -o respuesta.json -w '%{http_code}' -X POST http://127.0.0.1:8000/p1/predict \
+            -H 'Content-Type: application/json' -d "{\"instances\":[$row]}")
+          cat respuesta.json
+          [ "$code" = 200 ]
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8000/p1/predict \
+            -H 'Content-Type: application/json' -d '{"instances":[{"month":13}]}')
+          [ "$code" = 422 ]
+
+      - name: Guardar la respuesta de la API
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: respuesta-api
+          path: respuesta.json

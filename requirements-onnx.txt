@@ -1,0 +1,4 @@
+# Extra para convertir y servir el modelo con ONNX Runtime
+onnx==1.23.2
+onnxruntime==1.31.1
+skl2onnx==1.20.0

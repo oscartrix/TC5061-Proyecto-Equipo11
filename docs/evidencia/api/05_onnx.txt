@@ -1,0 +1,10 @@
+$ python scripts/export_onnx.py
+diferencia media: 0.0880  p99: 1.1093  máxima: 16.8949
+$ python scripts/benchmark_inference.py
+filas | motor   | p50 ms | p95 ms | filas/s
+    1 | sklearn |   5.09 |   6.88 | 196
+    1 | onnx    |   0.11 |   0.16 | 8850
+  100 | sklearn |   5.27 |   6.44 | 18977
+  100 | onnx    |   0.39 |   0.46 | 257693
+  500 | sklearn |   7.56 |  11.67 | 66116
+  500 | onnx    |   1.10 |   1.45 | 454663

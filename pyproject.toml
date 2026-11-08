@@ -39,6 +39,7 @@ dev = [
     "pytest",
     "ruff",
     "mkdocs",
+    "locust>=2.30",
 ]
 
 [tool.ruff]

@@ -7,3 +7,4 @@ anywidget==0.11.0
 setuptools==80.10.2
 bandit==1.9.4
 pip-audit==2.10.1
+locust>=2.30.0

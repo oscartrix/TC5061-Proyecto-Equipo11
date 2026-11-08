@@ -141,6 +141,12 @@ api-run:
 	$(CONTAINER_ENGINE) run --rm -p 8000:8000 mibici-api
 
 
+## Ejecutar pruebas de carga con Locust y generar reporte con gráficas
+.PHONY: locust-test
+locust-test:
+	$(PYTHON_INTERPRETER) scripts/run_locust_test.py --users 20 --spawn-rate 5 --run-time 30s --report-path reports/locust_report.html
+
+
 #################################################################################
 # Self Documenting Commands                                                     #
 #################################################################################

@@ -1,0 +1,69 @@
+services:
+  # Servidor MLflow Tracking Server & Artifact Store (definido en Dockerfile)
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mibici-equipo11
+    restart: unless-stopped
+    # Se usa 5001 porque hay conflictos con macOS
+    ports:
+      - "5001:5000"
+    environment:
+      - MLFLOW_TRACKING_URI=http://0.0.0.0:5000
+    volumes:
+      - mlflow-db:/app/db
+      - mlflow-artifacts:/app/mlartifacts
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./reports:/app/reports
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request as u; u.urlopen('http://127.0.0.1:5000/')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mibici-net
+
+  # API REST de Inferencia FastApi/Uvicorn (definida en Containerfile)
+  api:
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: mibici-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Si se incluye el modelo pre-exportado en la imagen o montado:
+      - MODEL_PATH=/app/models/p1_champion
+      # En caso de requerir conexión al registry de MLflow si se omite MODEL_PATH:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MODEL_NAME=mibici-equipo11-p1-demanda
+      - MODEL_ALIAS=champion
+    volumes:
+      # Permite actualizar el modelo local sin reconstruir la imagen si se desea
+      - ./models:/app/models:ro
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request as u; u.urlopen('http://127.0.0.1:8000/health')\" || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - mibici-net
+
+volumes:
+  mlflow-db:
+    name: mibici_equipo11_db
+  mlflow-artifacts:
+    name: mibici_equipo11_artifacts
+
+networks:
+  mibici-net:
+    name: mibici_network
+    driver: bridge

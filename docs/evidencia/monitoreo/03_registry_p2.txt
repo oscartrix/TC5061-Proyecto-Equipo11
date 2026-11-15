@@ -1,0 +1,16 @@
+Modelo registrado: mibici-equipo11-p2-riesgo
+Aliases: {'challenger': '2', 'champion': '1', 'retrain': '3'}
+
+v1  run bbb0b0fa1dc24604a1992d49950ad3a8  hgb_balanced  stage_of_work=candidate
+    train_end=2025-12-31  hiperparámetros={'max_iter': '150', 'learning_rate': '0.08', 'max_depth': '6'}
+    Riesgo de déficit, balance o excedente de bicis en las próximas 3 horas (clasificación). Modelo hgb_balanced, elegido por val_recall_deficit=0.7618 en validación.
+
+v2  run e1ee44a8a92245a0aa798cb1f6647680  hgb  stage_of_work=candidate
+    train_end=2025-12-31  hiperparámetros={'max_iter': '150', 'learning_rate': '0.08', 'max_depth': '6'}
+    Riesgo de déficit, balance o excedente de bicis en las próximas 3 horas (clasificación). Modelo hgb, elegido por val_recall_deficit=0.2782 en validación.
+
+v3  run 44bab0139aeb4c3588c038e02868afb0  hgb_balanced  stage_of_work=retrain
+    train_end=2026-08-31 20:00:00  hiperparámetros={'max_iter': '150', 'learning_rate': '0.08', 'max_depth': '6'}
+    base_model_version=1  train_start=2024-01-15 00:00:00  train_rows=1151850  train_deficit_share=0.1117
+    Riesgo de déficit, balance o excedente de bicis en las próximas 3 horas (clasificación). Reentrenamiento de la v1 (hgb_balanced) con datos hasta 2026-08-31 20:00:00.
+

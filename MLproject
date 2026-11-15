@@ -34,6 +34,13 @@ entry_points:
       question: {type: str, default: "p1"}
     command: "python -m mi_bici.modeling.register --question {question}"
 
+  # Reentrena el champion de P2 con datos hasta train_end y lo registra con alias retrain
+  retrain:
+    parameters:
+      train_end: {type: str, default: "2026-08-31"}
+      alias: {type: str, default: "retrain"}
+    command: "python -m mi_bici.modeling.retrain --train-end {train_end} --alias {alias}"
+
   predict:
     parameters:
       question: {type: str, default: "p1"}

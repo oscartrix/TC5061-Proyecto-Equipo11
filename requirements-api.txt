@@ -20,10 +20,10 @@ markdown-it-py==4.2.0
 mdurl==0.1.2
 mlflow-skinny==3.17.2
 numpy==2.2.6
-opentelemetry-api==1.45.1
-opentelemetry-proto==1.45.1
-opentelemetry-sdk==1.45.1
-opentelemetry-semantic-conventions==0.66b1
+opentelemetry-api==1.45.2
+opentelemetry-proto==1.45.2
+opentelemetry-sdk==1.45.2
+opentelemetry-semantic-conventions==0.66b2
 packaging==26.3
 pandas==2.3.3
 protobuf==7.36.2

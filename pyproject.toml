@@ -29,6 +29,7 @@ dependencies = [
     "loguru",
     "tqdm",
     "typer",
+    "evidently>=0.7.23",
 ]
 
 [project.optional-dependencies]

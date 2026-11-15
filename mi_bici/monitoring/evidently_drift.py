@@ -7,11 +7,39 @@ from evidently import Report
 from evidently.presets import DataDriftPreset
 
 from mi_bici.config import P2_FEATURES_PATH, REPORTS_DIR
-from mi_bici.modeling.train import P2_FEATURES
+from mi_bici.modeling.train import P2_FEATURES, plain_dtypes
+from mi_bici.monitoring.prepare_data import prepare_monitoring_data
 
 
 OUTPUT_DIR = REPORTS_DIR / "data_drift"
-DEFAULT_REPORT_PATH = OUTPUT_DIR / "evidently_drift_p2_months.html"
+DEFAULT_REPORT_PATH = OUTPUT_DIR / "evidently_drift_p2.html"
+
+
+def load_monitoring_frames() -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Carga la referencia (train 2024-2025) y el periodo actual (jul-sep 2026) de P2."""
+    reference, current = prepare_monitoring_data()
+    return plain_dtypes(reference), plain_dtypes(current)
+
+
+def sample_rows(df: pd.DataFrame, sample_size: int, random_state: int = 42) -> pd.DataFrame:
+    """Toma una muestra aleatoria para que el reporte HTML sea manejable."""
+    if sample_size and len(df) > sample_size:
+        return df.sample(n=sample_size, random_state=random_state)
+    return df
+
+
+def get_reference_and_current_data(
+    sample_size: int = 5000,
+    random_state: int = 42,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Muestras de la referencia de entrenamiento y del periodo actual."""
+    reference, current = load_monitoring_frames()
+    reference = sample_rows(reference, sample_size, random_state)
+    current = sample_rows(current, sample_size, random_state)
+    logger.info(
+        f"Muestras listas - Referencia: {reference.shape}, Actual: {current.shape}"
+    )
+    return reference, current
 
 
 def get_two_most_recent_months_data(
@@ -105,18 +133,16 @@ def generate_drift_report(
 
 
 def main():
-    """Función de entrada para ejecutar la comparación mensual de drift."""
-    ref_data, curr_data, ref_month, curr_month = get_two_most_recent_months_data(
-        sample_size=5000
-    )
+    """Compara la referencia de entrenamiento contra el periodo actual."""
+    ref_data, curr_data = get_reference_and_current_data(sample_size=5000)
     results = generate_drift_report(
-        reference_data=ref_data,
-        current_data=curr_data,
+        reference_data=ref_data[P2_FEATURES],
+        current_data=curr_data[P2_FEATURES],
         output_html_path=DEFAULT_REPORT_PATH,
     )
     summary = results["metrics_summary"]
     print("=" * 60)
-    print(f"REPORTE DE DATA DRIFT ({ref_month} vs {curr_month})")
+    print("REPORTE DE DATA DRIFT (referencia train vs actual jul-sep 2026)")
     print(f"Reporte HTML: {results['html_path']}")
     print(f"Columnas con drift detectado: {summary.get('drifted_columns_count')}")
     print(f"Proporción de drift: {summary.get('drifted_columns_share', 0):.2%}")

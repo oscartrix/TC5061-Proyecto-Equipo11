@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional
 import pandas as pd
 from loguru import logger
 
@@ -151,7 +151,7 @@ def get_two_most_recent_months_data(
 def generate_drift_report(
     reference_data: pd.DataFrame,
     current_data: pd.DataFrame,
-    output_html_path: Path = DEFAULT_REPORT_PATH,
+    output_html_path: Optional[Path] = DEFAULT_REPORT_PATH,
 ) -> Dict[str, Any]:
     """Ejecuta el análisis de Data Drift de Evidently y guarda el reporte HTML."""
     logger.info("Configurando y ejecutando DataDriftPreset y DataSummaryPreset de Evidently...")
@@ -171,10 +171,12 @@ def generate_drift_report(
         reference_data=Dataset.from_pandas(reference_data, data_definition=data_definition),
     )
 
-    output_path = Path(output_html_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    snapshot.save_html(str(output_path))
-    logger.info(f"Reporte HTML guardado exitosamente en: {output_path}")
+    output_path = None
+    if output_html_path is not None:
+        output_path = Path(output_html_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        snapshot.save_html(str(output_path))
+        logger.info(f"Reporte HTML guardado exitosamente en: {output_path}")
 
     # Extraer métricas clave estructuradas
     snapshot_dict = snapshot.dump_dict()
@@ -211,7 +213,7 @@ def generate_drift_report(
     metrics_summary["drift_details"] = drift_details
     metrics_summary["data_quality_current"] = data_quality
     return {
-        "html_path": str(output_path),
+        "html_path": str(output_path) if output_path else None,
         "metrics_summary": metrics_summary,
         "snapshot": snapshot,
     }
@@ -256,9 +258,54 @@ def save_drift_summary(summary: Dict[str, Any], output_path: Path = DEFAULT_SUMM
     return output_path
 
 
+def compare(
+    reference_data: pd.DataFrame,
+    current_data: pd.DataFrame,
+    output_html_path: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """Corre una comparación de Evidently y devuelve su resumen."""
+    columns = monitored_columns(reference_data)
+    results = generate_drift_report(
+        reference_data=reference_data[columns],
+        current_data=current_data[columns],
+        output_html_path=output_html_path,
+    )
+    return summarize_comparison(reference_data, current_data, results["metrics_summary"])
+
+
+def additional_comparisons(
+    reference: pd.DataFrame,
+    current: pd.DataFrame,
+    sample_size: int = 5000,
+    random_state: int = 42,
+) -> Dict[str, Dict[str, Any]]:
+    """Drift de cada mes del periodo actual y contra los mismos meses de años anteriores.
+
+    - ``train_vs_<mes>``: referencia completa contra cada mes actual, para ver la evolución.
+    - ``mismos_meses_train_vs_actual``: solo los meses del periodo actual dentro de la
+      referencia (jul-sep 2024 y 2025), para separar la estacionalidad de un cambio real.
+    """
+    comparisons = {}
+    reference_sample = sample_rows(reference, sample_size, random_state)
+    current_months = current["hour_ts"].dt.to_period("M")
+    for month in sorted(current_months.unique()):
+        month_rows = sample_rows(current[current_months == month], sample_size, random_state)
+        comparisons[f"train_vs_{month}"] = compare(reference_sample, month_rows)
+
+    same_months = reference[reference["hour_ts"].dt.month.isin(current["hour_ts"].dt.month.unique())]
+    if not same_months.empty:
+        comparisons["mismos_meses_train_vs_actual"] = compare(
+            sample_rows(same_months, sample_size, random_state),
+            sample_rows(current, sample_size, random_state),
+        )
+    return comparisons
+
+
 def main():
     """Compara la referencia de entrenamiento contra el periodo actual."""
-    ref_data, curr_data = get_reference_and_current_data(sample_size=5000)
+    reference, current = load_monitoring_frames()
+    ref_data = sample_rows(reference, 5000)
+    curr_data = sample_rows(current, 5000)
     columns = monitored_columns(ref_data)
     results = generate_drift_report(
         reference_data=ref_data[columns],
@@ -274,6 +321,7 @@ def main():
         },
         "comparisons": {
             "train_vs_actual": summarize_comparison(ref_data, curr_data, summary),
+            **additional_comparisons(reference, current),
         },
     }
     summary_path = save_drift_summary(drift_summary)
@@ -283,7 +331,13 @@ def main():
     print(f"Resumen JSON: {summary_path}")
     print(f"Columnas con drift detectado: {summary.get('drifted_columns_count')}")
     print(f"Proporción de drift: {summary.get('drifted_columns_share', 0):.2%}")
-    print("Scores de drift por variable:")
+    print("Variables con drift por comparación:")
+    for name, comparison in drift_summary["comparisons"].items():
+        print(
+            f"  - {name}: {comparison['drifted_columns']} "
+            f"({comparison['drifted_share_monitored']:.0%} de las variables monitoreadas)"
+        )
+    print("Scores de drift por variable (train vs actual):")
     for col, score in summary.get("drift_by_column", {}).items():
         print(f"  - {col}: {score}")
     print("=" * 60)

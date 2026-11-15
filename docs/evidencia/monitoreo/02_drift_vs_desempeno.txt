@@ -1,0 +1,24 @@
+        split  n_drifted  pressure_last_3h  departures  risk_class  model_f1_macro  model_recall_deficit  model_precision_deficit
+month                                                                                                                            
+2026-01   val          4             0.114       0.094       0.049           0.551                 0.766                    0.293
+2026-02   val          4             0.117       0.074       0.043           0.534                 0.771                    0.281
+2026-03   val          4             0.112       0.051       0.033           0.551                 0.773                    0.290
+2026-04   val          4             0.124       0.086       0.039           0.543                 0.770                    0.280
+2026-05   val          7             0.204       0.256       0.096           0.530                 0.763                    0.249
+2026-06   val          7             0.194       0.133       0.080           0.524                 0.721                    0.258
+2026-07  test          5             0.159       0.096       0.064           0.543                 0.775                    0.271
+2026-08  test          4             0.119       0.072       0.043           0.555                 0.772                    0.305
+2026-09  test          1             0.088       0.140       0.027           0.548                 0.778                    0.307
+
+Correlación entre drift y métricas del champion (Pearson, 9 meses):
+                          model_f1_macro  model_recall_deficit  model_precision_deficit
+n_drifted                          -0.70                 -0.68                    -0.89
+departures                         -0.57                 -0.26                    -0.62
+arrivals                           -0.63                 -0.32                    -0.72
+net_flow                           -0.79                 -0.56                    -0.95
+pressure_last_3h                   -0.78                 -0.66                    -0.93
+pressure_window_lag_24h            -0.84                 -0.69                    -0.96
+pressure_window_lag_168h           -0.64                 -0.73                    -0.84
+pressure_window_lag_336h           -0.57                 -0.77                    -0.71
+risk_class                         -0.74                 -0.59                    -0.90
+prediction                         -0.67                 -0.61                    -0.87

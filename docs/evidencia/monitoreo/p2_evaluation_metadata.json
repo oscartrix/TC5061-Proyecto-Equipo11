@@ -1,0 +1,18 @@
+{
+  "question": "p2",
+  "model_uri": "models:/mibici-equipo11-p2-riesgo/1",
+  "alias": "champion",
+  "source_run_id": "bbb0b0fa1dc24604a1992d49950ad3a8",
+  "model_tags": {
+    "git_commit": "c8fc6fd1da27",
+    "data_version": "a6306ebfef13",
+    "experiment": "mibici-equipo11",
+    "source_run_id": "bbb0b0fa1dc24604a1992d49950ad3a8",
+    "model_family": "hgb_balanced"
+  },
+  "baseline": "WeeklyRule_lag168h",
+  "baseline_params": {},
+  "random_seed": 42,
+  "data_version": "a6306ebfef13",
+  "evaluation_changes_selection": false
+}

@@ -3,8 +3,8 @@ from typing import Tuple, Dict, Any
 import pandas as pd
 from loguru import logger
 
-from evidently import Report
-from evidently.presets import DataDriftPreset
+from evidently import DataDefinition, Dataset, Report
+from evidently.presets import DataDriftPreset, DataSummaryPreset
 
 from mi_bici.config import P2_FEATURES_PATH, REPORTS_DIR
 from mi_bici.modeling.train import P2_FEATURES, plain_dtypes
@@ -13,6 +13,21 @@ from mi_bici.monitoring.prepare_data import prepare_monitoring_data
 
 OUTPUT_DIR = REPORTS_DIR / "data_drift"
 DEFAULT_REPORT_PATH = OUTPUT_DIR / "evidently_drift_p2.html"
+
+# Pruebas de drift fijas (con más de 1000 filas son las que Evidently elige por defecto).
+# Ambas son distancias: hay drift cuando el score es mayor o igual al umbral.
+DRIFT_NUM_METHOD = "wasserstein"
+DRIFT_CAT_METHOD = "jensenshannon"
+DRIFT_THRESHOLD = 0.1
+CATEGORICAL_COLUMNS = ["hour", "day_of_week", "is_weekend"]
+
+
+def build_data_definition(df: pd.DataFrame) -> DataDefinition:
+    """Declara qué columnas son numéricas y cuáles categóricas para Evidently."""
+    return DataDefinition(
+        numerical_columns=[c for c in df.columns if c not in CATEGORICAL_COLUMNS],
+        categorical_columns=[c for c in df.columns if c in CATEGORICAL_COLUMNS],
+    )
 
 
 def load_monitoring_frames() -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -100,9 +115,22 @@ def generate_drift_report(
     output_html_path: Path = DEFAULT_REPORT_PATH,
 ) -> Dict[str, Any]:
     """Ejecuta el análisis de Data Drift de Evidently y guarda el reporte HTML."""
-    logger.info("Configurando y ejecutando DataDriftPreset de Evidently...")
-    report = Report([DataDriftPreset()])
-    snapshot = report.run(current_data=current_data, reference_data=reference_data)
+    logger.info("Configurando y ejecutando DataDriftPreset y DataSummaryPreset de Evidently...")
+    report = Report(
+        [
+            DataDriftPreset(
+                num_method=DRIFT_NUM_METHOD,
+                cat_method=DRIFT_CAT_METHOD,
+                threshold=DRIFT_THRESHOLD,
+            ),
+            DataSummaryPreset(),
+        ]
+    )
+    data_definition = build_data_definition(reference_data)
+    snapshot = report.run(
+        current_data=Dataset.from_pandas(current_data, data_definition=data_definition),
+        reference_data=Dataset.from_pandas(reference_data, data_definition=data_definition),
+    )
 
     output_path = Path(output_html_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -115,6 +143,8 @@ def generate_drift_report(
 
     metrics_summary = {}
     drifted_columns_info = {}
+    drift_details = {}
+    data_quality = {}
     for _, item in metric_results.items():
         disp_name = item.get("display_name", "")
         if "Count of Drifted Columns" in disp_name and "count" in item:
@@ -122,9 +152,25 @@ def generate_drift_report(
             metrics_summary["drifted_columns_share"] = item["share"].get("value")
         elif "Value drift for" in disp_name:
             col_name = disp_name.replace("Value drift for", "").strip()
-            drifted_columns_info[col_name] = item.get("value")
+            score = item.get("value")
+            params = item["metric_value_location"]["metric"]["params"]
+            drifted_columns_info[col_name] = score
+            # Wasserstein y Jensen-Shannon son distancias: hay drift si score >= umbral
+            drift_details[col_name] = {
+                "method": params.get("method"),
+                "threshold": params.get("threshold"),
+                "score": score,
+                "drift": bool(score >= params.get("threshold")),
+            }
+        elif disp_name.endswith("in dataset") and isinstance(item.get("value"), (int, float)):
+            data_quality[disp_name] = item["value"]
+        elif disp_name == "Count and share of missing values in dataset":
+            data_quality["Missing values count"] = item["count"].get("value")
+            data_quality["Missing values share"] = item["share"].get("value")
 
     metrics_summary["drift_by_column"] = drifted_columns_info
+    metrics_summary["drift_details"] = drift_details
+    metrics_summary["data_quality_current"] = data_quality
     return {
         "html_path": str(output_path),
         "metrics_summary": metrics_summary,

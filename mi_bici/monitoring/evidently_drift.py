@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Tuple, Dict, Any
 import pandas as pd
@@ -24,6 +25,11 @@ CATEGORICAL_COLUMNS = ["hour", "day_of_week", "is_weekend", "risk_class", "predi
 # Predicciones del champion generadas con: mlflow run . -e predict -P question=p2
 P2_PREDICTIONS_PATH = PROCESSED_DATA_DIR / "p2_predictions.parquet"
 MONITORED_COLUMNS = [*P2_FEATURES, "risk_class", "prediction"]
+
+# Variables fijas por construcción (malla de estaciones x horas): no pueden derivar,
+# por lo que se excluyen de la proporción de columnas con drift del resumen.
+STATIC_COLUMNS = ["hour", "day_of_week", "is_weekend", "capacity"]
+DEFAULT_SUMMARY_PATH = OUTPUT_DIR / "evidently_drift_p2_summary.json"
 
 
 def build_data_definition(df: pd.DataFrame) -> DataDefinition:
@@ -211,6 +217,45 @@ def generate_drift_report(
     }
 
 
+def period_of(df: pd.DataFrame) -> Dict[str, Any]:
+    """Rango de fechas y filas de un conjunto de monitoreo."""
+    period = {"rows": int(len(df))}
+    if "hour_ts" in df.columns and len(df):
+        period["start"] = str(df["hour_ts"].min())
+        period["end"] = str(df["hour_ts"].max())
+    return period
+
+
+def summarize_comparison(
+    reference_data: pd.DataFrame,
+    current_data: pd.DataFrame,
+    metrics_summary: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Resumen de una comparación con la proporción de drift sin las variables fijas."""
+    details = metrics_summary.get("drift_details", {})
+    monitored = {col: d for col, d in details.items() if col not in STATIC_COLUMNS}
+    drifted = [col for col, d in monitored.items() if d["drift"]]
+    return {
+        "reference": period_of(reference_data),
+        "current": period_of(current_data),
+        "drifted_columns": drifted,
+        "drifted_share_monitored": len(drifted) / len(monitored) if monitored else 0.0,
+        "excluded_static_columns": [c for c in STATIC_COLUMNS if c in details],
+        "evidently_drifted_columns_share": metrics_summary.get("drifted_columns_share"),
+        "columns": details,
+        "data_quality_current": metrics_summary.get("data_quality_current", {}),
+    }
+
+
+def save_drift_summary(summary: Dict[str, Any], output_path: Path = DEFAULT_SUMMARY_PATH) -> Path:
+    """Guarda el resumen de drift en JSON."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    logger.info(f"Resumen JSON guardado en: {output_path}")
+    return output_path
+
+
 def main():
     """Compara la referencia de entrenamiento contra el periodo actual."""
     ref_data, curr_data = get_reference_and_current_data(sample_size=5000)
@@ -221,9 +266,21 @@ def main():
         output_html_path=DEFAULT_REPORT_PATH,
     )
     summary = results["metrics_summary"]
+    drift_summary = {
+        "method": {
+            "numerical": DRIFT_NUM_METHOD,
+            "categorical": DRIFT_CAT_METHOD,
+            "threshold": DRIFT_THRESHOLD,
+        },
+        "comparisons": {
+            "train_vs_actual": summarize_comparison(ref_data, curr_data, summary),
+        },
+    }
+    summary_path = save_drift_summary(drift_summary)
     print("=" * 60)
     print("REPORTE DE DATA DRIFT (referencia train vs actual jul-sep 2026)")
     print(f"Reporte HTML: {results['html_path']}")
+    print(f"Resumen JSON: {summary_path}")
     print(f"Columnas con drift detectado: {summary.get('drifted_columns_count')}")
     print(f"Proporción de drift: {summary.get('drifted_columns_share', 0):.2%}")
     print("Scores de drift por variable:")

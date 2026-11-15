@@ -6,7 +6,7 @@ from loguru import logger
 from evidently import DataDefinition, Dataset, Report
 from evidently.presets import DataDriftPreset, DataSummaryPreset
 
-from mi_bici.config import P2_FEATURES_PATH, REPORTS_DIR
+from mi_bici.config import P2_FEATURES_PATH, PROCESSED_DATA_DIR, REPORTS_DIR
 from mi_bici.modeling.train import P2_FEATURES, plain_dtypes
 from mi_bici.monitoring.prepare_data import prepare_monitoring_data
 
@@ -19,7 +19,11 @@ DEFAULT_REPORT_PATH = OUTPUT_DIR / "evidently_drift_p2.html"
 DRIFT_NUM_METHOD = "wasserstein"
 DRIFT_CAT_METHOD = "jensenshannon"
 DRIFT_THRESHOLD = 0.1
-CATEGORICAL_COLUMNS = ["hour", "day_of_week", "is_weekend"]
+CATEGORICAL_COLUMNS = ["hour", "day_of_week", "is_weekend", "risk_class", "prediction"]
+
+# Predicciones del champion generadas con: mlflow run . -e predict -P question=p2
+P2_PREDICTIONS_PATH = PROCESSED_DATA_DIR / "p2_predictions.parquet"
+MONITORED_COLUMNS = [*P2_FEATURES, "risk_class", "prediction"]
 
 
 def build_data_definition(df: pd.DataFrame) -> DataDefinition:
@@ -30,10 +34,39 @@ def build_data_definition(df: pd.DataFrame) -> DataDefinition:
     )
 
 
-def load_monitoring_frames() -> Tuple[pd.DataFrame, pd.DataFrame]:
+def add_predictions(
+    reference: pd.DataFrame,
+    current: pd.DataFrame,
+    predictions_path: Path = P2_PREDICTIONS_PATH,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Une las predicciones del champion por estación y hora, si el archivo existe."""
+    if not Path(predictions_path).exists():
+        logger.warning(
+            f"No se encontraron predicciones en {predictions_path}; "
+            "el reporte no incluirá el drift de las predicciones."
+        )
+        return reference, current
+
+    predictions = pd.read_parquet(
+        predictions_path, columns=["station_id", "hour_ts", "prediction"]
+    )
+    reference = reference.merge(predictions, on=["station_id", "hour_ts"], how="left")
+    current = current.merge(predictions, on=["station_id", "hour_ts"], how="left")
+    return reference, current
+
+
+def load_monitoring_frames(
+    predictions_path: Path = P2_PREDICTIONS_PATH,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Carga la referencia (train 2024-2025) y el periodo actual (jul-sep 2026) de P2."""
     reference, current = prepare_monitoring_data()
+    reference, current = add_predictions(reference, current, predictions_path)
     return plain_dtypes(reference), plain_dtypes(current)
+
+
+def monitored_columns(df: pd.DataFrame) -> list:
+    """Variables, objetivo y predicción presentes en el DataFrame."""
+    return [c for c in MONITORED_COLUMNS if c in df.columns]
 
 
 def sample_rows(df: pd.DataFrame, sample_size: int, random_state: int = 42) -> pd.DataFrame:
@@ -181,9 +214,10 @@ def generate_drift_report(
 def main():
     """Compara la referencia de entrenamiento contra el periodo actual."""
     ref_data, curr_data = get_reference_and_current_data(sample_size=5000)
+    columns = monitored_columns(ref_data)
     results = generate_drift_report(
-        reference_data=ref_data[P2_FEATURES],
-        current_data=curr_data[P2_FEATURES],
+        reference_data=ref_data[columns],
+        current_data=curr_data[columns],
         output_html_path=DEFAULT_REPORT_PATH,
     )
     summary = results["metrics_summary"]

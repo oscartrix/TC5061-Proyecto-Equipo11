@@ -1,0 +1,27 @@
+============================================================
+REPORTE DE DATA DRIFT (referencia train vs actual jul-sep 2026)
+Reporte HTML: reports/data_drift/evidently_drift_p2.html
+Resumen JSON: reports/data_drift/evidently_drift_p2_summary.json
+Columnas con drift detectado: 4.0
+Proporción de drift: 30.77%
+Variables con drift por comparación:
+  - train_vs_actual: ['pressure_last_3h', 'pressure_window_lag_24h', 'pressure_window_lag_168h', 'pressure_window_lag_336h'] (44% de las variables monitoreadas)
+  - train_vs_2026-07: ['net_flow', 'pressure_last_3h', 'pressure_window_lag_24h', 'pressure_window_lag_168h', 'pressure_window_lag_336h'] (56% de las variables monitoreadas)
+  - train_vs_2026-08: ['pressure_last_3h', 'pressure_window_lag_24h', 'pressure_window_lag_168h', 'pressure_window_lag_336h'] (44% de las variables monitoreadas)
+  - train_vs_2026-09: ['departures'] (11% de las variables monitoreadas)
+  - mismos_meses_train_vs_actual: ['pressure_last_3h', 'pressure_window_lag_168h', 'pressure_window_lag_336h'] (33% de las variables monitoreadas)
+Scores de drift por variable (train vs actual):
+  - departures: 0.07520098958841648
+  - arrivals: 0.023915329402623007
+  - net_flow: 0.05955169465900737
+  - pressure_last_3h: 0.1221934320830802
+  - pressure_window_lag_24h: 0.11462281613463285
+  - pressure_window_lag_168h: 0.12496341231424185
+  - pressure_window_lag_336h: 0.1251168933462462
+  - capacity: 0.030252956358731507
+  - hour: 0.02906758263290365
+  - day_of_week: 0.021719974924115017
+  - is_weekend: 0.015503885741126421
+  - risk_class: 0.040508454819111514
+  - prediction: 0.035230066808552375
+============================================================

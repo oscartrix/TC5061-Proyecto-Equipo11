@@ -6,6 +6,10 @@ import pandas as pd
 from mi_bici.config import P2_FEATURES_PATH
 from mi_bici.modeling.train import P2_FEATURES
 
+ID_COLUMNS = ["station_id", "hour_ts"]
+TARGET_COLUMN = "risk_class"
+MONITORING_COLUMNS = [*ID_COLUMNS, *P2_FEATURES, TARGET_COLUMN]
+
 
 def prepare_monitoring_data():
     """Obtiene los conjuntos temporales para detectar data drift."""
@@ -13,11 +17,11 @@ def prepare_monitoring_data():
     df = pd.read_parquet(P2_FEATURES_PATH)
 
     reference = df.loc[
-        df["split"] == "train", P2_FEATURES
+        df["split"] == "train", MONITORING_COLUMNS
     ].copy()
 
     current = df.loc[
-        df["split"] == "test", P2_FEATURES
+        df["split"] == "test", MONITORING_COLUMNS
     ].copy()
 
     if reference.empty or current.empty:

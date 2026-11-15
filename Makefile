@@ -54,6 +54,12 @@ validate:
 	python -m mi_bici.validation.drift_validation
 
 
+## Reporte de drift de P2 con Evidently (referencia train vs actual jul-sep 2026)
+.PHONY: drift-report
+drift-report:
+	python -m mi_bici.monitoring.evidently_drift
+
+
 ## Análisis de seguridad del código y de las dependencias
 .PHONY: security
 security:

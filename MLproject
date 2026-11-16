@@ -41,6 +41,15 @@ entry_points:
       alias: {type: str, default: "retrain"}
     command: "python -m mi_bici.modeling.retrain --train-end {train_end} --alias {alias}"
 
+  # Compara @champion contra otra versión de P2 sobre un periodo que ninguna vio al entrenar
+  ab_test:
+    parameters:
+      challenger_alias: {type: str, default: "retrain-jun"}
+      start: {type: str, default: "2026-07-01"}
+      end: {type: str, default: "2026-09-30"}
+      name: {type: str, default: "ab_test"}
+    command: "python -m mi_bici.monitoring.ab_testing --challenger-alias {challenger_alias} --start {start} --end {end} --name {name}"
+
   predict:
     parameters:
       question: {type: str, default: "p1"}

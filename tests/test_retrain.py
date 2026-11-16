@@ -11,6 +11,7 @@ from mi_bici.modeling.retrain import (
     app,
     champion_spec,
     label_cutoff,
+    log_retrain_run,
     training_window,
 )
 
@@ -61,3 +62,20 @@ def test_main_rechaza_aliases_de_register(alias):
 
     assert result.exit_code != 0
     assert 'register.py' in result.output
+
+
+def test_log_retrain_run_registra_train_end_igual_que_mlproject(monkeypatch):
+    logged = {}
+    monkeypatch.setattr('mi_bici.modeling.retrain.mlflow.log_params', logged.update)
+    for name in ('set_tags', 'log_artifact', 'log_dict', 'log_input'):
+        monkeypatch.setattr(f'mi_bici.modeling.retrain.mlflow.{name}', lambda *a, **k: None)
+    monkeypatch.setattr('mi_bici.modeling.retrain.mlflow.data.from_pandas', lambda *a, **k: None)
+    train_df = pd.DataFrame(
+        {'hour_ts': pd.date_range('2026-06-30', periods=3, freq='h'), 'risk_class': 'deficit'}
+    )
+    champion = SimpleNamespace(version='1', run_id='abc')
+
+    log_retrain_run('hgb_balanced', {}, train_df, label_cutoff('2026-06-30'), champion)
+
+    assert logged['train_end'] == '2026-06-30'
+    assert logged['train_cutoff'] == '2026-06-30 20:00:00'

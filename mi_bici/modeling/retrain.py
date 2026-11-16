@@ -74,7 +74,9 @@ def log_retrain_run(
     params, tags = common_params_and_tags(QUESTION, 'retrain', family)
     params.update(
         {
-            'train_end': str(cutoff),
+            # mlflow run ya registra train_end como fecha; la hora de corte va aparte
+            'train_end': str(cutoff.date()),
+            'train_cutoff': str(cutoff),
             'train_start': str(train_df['hour_ts'].min()),
             'base_model_version': champion.version,
             'base_run_id': champion.run_id,

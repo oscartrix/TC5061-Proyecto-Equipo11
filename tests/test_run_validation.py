@@ -2,6 +2,7 @@
 
 import pandas as pd
 import pytest
+import re
 
 from mi_bici.validation import run_validation
 
@@ -60,7 +61,7 @@ def test_dataset_path_must_be_a_file(validation_files):
     paths['P1'].unlink()
     paths['P1'].mkdir()
 
-    with pytest.raises(SystemExit, match=str(paths['P1'])):
+    with pytest.raises(SystemExit, match=re.escape(str(paths["P1"]))):
         run_validation.main()
 
     assert not reports_dir.exists()

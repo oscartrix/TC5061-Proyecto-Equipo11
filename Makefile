@@ -60,6 +60,19 @@ drift-report:
 	python -m mi_bici.monitoring.evidently_drift
 
 
+## Reentrenar P2 hasta jun-2026 (versión B del A/B testing)
+.PHONY: retrain-jun
+retrain-jun:
+	mlflow run . -e retrain -P train_end=2026-06-30 -P alias=retrain-jun \
+		--experiment-name $(MLFLOW_EXPERIMENT_NAME) --env-manager $(ENV_MANAGER)
+
+
+## A/B testing de P2: champion contra retrain-jun en jul-sep 2026
+.PHONY: ab-test
+ab-test:
+	python -m mi_bici.monitoring.ab_testing --challenger-alias retrain-jun
+
+
 ## Análisis de seguridad del código y de las dependencias
 .PHONY: security
 security:

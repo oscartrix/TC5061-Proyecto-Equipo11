@@ -1,0 +1,95 @@
+{
+  "n_samples": 35850,
+  "n_blocks": 1500,
+  "deficit_share": 0.10128312412831242,
+  "metrics": {
+    "A": {
+      "f1_macro": 0.5476597767996977,
+      "recall_deficit": 0.7780225833103828,
+      "precision_deficit": 0.306698512647921,
+      "accuracy": 0.6259693165969317,
+      "missed_deficits": 806,
+      "false_deficit_alerts": 6386
+    },
+    "B": {
+      "f1_macro": 0.5468696320328962,
+      "recall_deficit": 0.7898650509501515,
+      "precision_deficit": 0.3074284489227141,
+      "accuracy": 0.6233472803347281,
+      "missed_deficits": 763,
+      "false_deficit_alerts": 6461
+    }
+  },
+  "diff_b_minus_a": {
+    "f1_macro": -0.0007901447668015038,
+    "recall_deficit": 0.011842467639768706,
+    "precision_deficit": 0.0007299362747931193
+  },
+  "ci95": {
+    "f1_macro": {
+      "low": -0.002695838400480169,
+      "high": 0.00105881999376526
+    },
+    "recall_deficit": {
+      "low": 0.007024247919104287,
+      "high": 0.017187330535757266
+    },
+    "precision_deficit": {
+      "low": -0.0015120634272355494,
+      "high": 0.0030511606436999447
+    }
+  },
+  "mcnemar": {
+    "only_a_right": 632,
+    "only_b_right": 538,
+    "pvalue": 0.006525813596887904
+  },
+  "simulated_split": [
+    {
+      "arm": "A",
+      "n_samples": 17712,
+      "accuracy": 0.6276535682023487,
+      "f1_macro": 0.5486821163231621,
+      "precision_macro": 0.5330159699974152,
+      "recall_macro": 0.7235352677046839,
+      "recall_deficit": 0.7787861599546227,
+      "precision_deficit": 0.30315742989622435,
+      "missed_deficits": 390,
+      "false_deficit_alerts": 3156
+    },
+    {
+      "arm": "B",
+      "n_samples": 18138,
+      "accuracy": 0.622836034843974,
+      "f1_macro": 0.546505171269383,
+      "precision_macro": 0.5326642853466796,
+      "recall_macro": 0.7263821799082302,
+      "recall_deficit": 0.7874732334047109,
+      "precision_deficit": 0.31178465451462484,
+      "missed_deficits": 397,
+      "false_deficit_alerts": 3247
+    }
+  ],
+  "decision": "A",
+  "period": {
+    "start": "2026-09-01",
+    "end": "2026-09-30"
+  },
+  "versions": {
+    "A": {
+      "alias": "champion",
+      "version": "1",
+      "run_id": "4b1409ac19614517867076d59c6d1ad1",
+      "model": "hgb_balanced",
+      "train_end": "2025-12-31"
+    },
+    "B": {
+      "alias": "retrain",
+      "version": "4",
+      "run_id": "4e5c6c10860649109ee27d4ee29b122c",
+      "model": "hgb_balanced",
+      "train_end": "2026-08-31"
+    }
+  },
+  "rule": "B si el límite inferior del IC de recall_deficit >= -0.01 y el límite inferior del IC de f1_macro o precision_deficit > 0"
+}

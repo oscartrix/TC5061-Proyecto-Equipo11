@@ -1,0 +1,21 @@
+$ make ab-test
+2026-11-15 21:01:39.225 | INFO     | __main__:main:299 - 110,250 filas de 2026-07-01 a 2026-09-30; A=v1, B=v3
+🏃 View run p2-ab_test at: http://127.0.0.1:5000/#/experiments/1/runs/57a643ad6012409cb4badba7de9280c8
+🧪 View experiment at: http://127.0.0.1:5000/#/experiments/1
+2026-11-15 21:01:41.705 | INFO     | __main__:main:308 - f1_macro: A=0.5490 B=0.5480 B-A=-0.0010 [-0.0020, +0.0001]
+2026-11-15 21:01:41.705 | INFO     | __main__:main:308 - recall_deficit: A=0.7751 B=0.7830 B-A=+0.0079 [+0.0047, +0.0109]
+2026-11-15 21:01:41.705 | INFO     | __main__:main:308 - precision_deficit: A=0.2945 B=0.2944 B-A=-0.0001 [-0.0014, +0.0011]
+2026-11-15 21:01:41.705 | SUCCESS  | __main__:main:313 - Decisión: queda la versión A (corrida 57a643ad6012409cb4badba7de9280c8)
+
+$ python -m mi_bici.monitoring.ab_testing --challenger-alias retrain --start 2026-09-01 --name ab_test_sep
+2026-11-15 21:01:47.411 | INFO     | __main__:main:299 - 35,850 filas de 2026-09-01 a 2026-09-30; A=v1, B=v4
+🏃 View run p2-ab_test_sep at: http://127.0.0.1:5000/#/experiments/1/runs/19aba59f62614d90a61234ebc3b8221c
+🧪 View experiment at: http://127.0.0.1:5000/#/experiments/1
+2026-11-15 21:01:48.864 | INFO     | __main__:main:308 - f1_macro: A=0.5477 B=0.5469 B-A=-0.0008 [-0.0027, +0.0011]
+2026-11-15 21:01:48.864 | INFO     | __main__:main:308 - recall_deficit: A=0.7780 B=0.7899 B-A=+0.0118 [+0.0070, +0.0172]
+2026-11-15 21:01:48.864 | INFO     | __main__:main:308 - precision_deficit: A=0.3067 B=0.3074 B-A=+0.0007 [-0.0015, +0.0031]
+2026-11-15 21:01:48.864 | SUCCESS  | __main__:main:313 - Decisión: queda la versión A (corrida 19aba59f62614d90a61234ebc3b8221c)
+
+$ python -m mi_bici.monitoring.ab_testing --challenger-alias retrain   # retrain vio jul-ago
+ValueError: @retrain (v4) entrenó hasta 2026-08-31; no se puede evaluar desde 
+2026-07-01.

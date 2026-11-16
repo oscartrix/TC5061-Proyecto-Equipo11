@@ -604,8 +604,23 @@ La ingesta completa descargó 1,070.1 MB de CSV de 33 meses. Durante la generaci
 ![Evaluación de champions frente a baselines](docs/evidencia/05_evaluacion.png)
 ![Inferencia con los tres champions](docs/evidencia/06_inferencia.png)
 
+### Monitoreo, A/B testing y Continuous Training (P2)
+El detalle de los periodos, el método, la interpretación del drift, el A/B testing y la recomendación de reentrenamiento está en [`docs/monitoreo.md`](docs/monitoreo.md).
+
+```bash
+make drift-report                              # Evidently: referencia train contra jul-sep 2026
+python -m mi_bici.monitoring.drift_performance # drift mensual junto al desempeño del champion
+make retrain-jun                               # nueva versión de P2 entrenada hasta 2026-06-30 (@retrain-jun)
+make ab-test                                   # champion contra retrain-jun sobre jul-sep 2026
+```
+
+`make ab-test` registra la corrida `p2-ab_test` en MLflow, etiqueta la versión retadora con la decisión y deja en `reports/ab_testing/` el resumen JSON, la tabla por mes y la gráfica. `@champion` solo cambia con `--promote`.
+
+![Reporte de drift de Evidently](docs/evidencia/monitoreo/05_evidently_drift.png)
+![A/B testing de P2](docs/evidencia/monitoreo/ab_test_metricas.png)
+
 ### Integración continua
-El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks, entrenamiento de todos los modelos, dos búsquedas, registro, evaluación contra baselines e inferencia con los tres modelos `champion`. Los reportes de validación y evaluación se suben como artefactos incluso si falla el paso correspondiente; un error de calidad o drift impide continuar con el entrenamiento. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
+El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks, entrenamiento de todos los modelos, dos búsquedas, registro, evaluación contra baselines e inferencia con los tres modelos `champion`. Después reentrena P2, genera el reporte de drift con Evidently, corre el A/B testing, construye la imagen de la API, la prueba con peticiones y con una prueba de carga de Locust, y valida `docker-compose.yaml`. Los reportes de validación y evaluación se suben como artefactos incluso si falla el paso correspondiente; un error de calidad o drift impide continuar con el entrenamiento. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
 
 ---
 

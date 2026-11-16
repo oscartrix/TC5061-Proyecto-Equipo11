@@ -1,16 +1,23 @@
 Modelo registrado: mibici-equipo11-p2-riesgo
-Aliases: {'challenger': '2', 'champion': '1', 'retrain': '3'}
+Aliases: {'challenger': '2', 'champion': '1', 'retrain': '4', 'retrain-jun': '3'}
 
-v1  run bbb0b0fa1dc24604a1992d49950ad3a8  hgb_balanced  stage_of_work=candidate
+v1  run 4b1409ac19614517867076d59c6d1ad1  hgb_balanced  stage_of_work=candidate
     train_end=2025-12-31  hiperparámetros={'max_iter': '150', 'learning_rate': '0.08', 'max_depth': '6'}
     Riesgo de déficit, balance o excedente de bicis en las próximas 3 horas (clasificación). Modelo hgb_balanced, elegido por val_recall_deficit=0.7618 en validación.
 
-v2  run e1ee44a8a92245a0aa798cb1f6647680  hgb  stage_of_work=candidate
+v2  run bb1237c50bb34a6bafd322616f591add  hgb  stage_of_work=candidate
     train_end=2025-12-31  hiperparámetros={'max_iter': '150', 'learning_rate': '0.08', 'max_depth': '6'}
     Riesgo de déficit, balance o excedente de bicis en las próximas 3 horas (clasificación). Modelo hgb, elegido por val_recall_deficit=0.2782 en validación.
 
-v3  run 44bab0139aeb4c3588c038e02868afb0  hgb_balanced  stage_of_work=retrain
-    train_end=2026-08-31 20:00:00  hiperparámetros={'max_iter': '150', 'learning_rate': '0.08', 'max_depth': '6'}
-    base_model_version=1  train_start=2024-01-15 00:00:00  train_rows=1151850  train_deficit_share=0.1117
+v3  run f196bcfc904346c1b6c07bb8ea048e5d  hgb_balanced  stage_of_work=retrain
+    train_end=2026-06-30  hiperparámetros={'max_iter': '150', 'learning_rate': '0.08', 'max_depth': '6'}
+    base_model_version=1  train_cutoff=2026-06-30 20:00:00  train_rows=1077450  train_deficit_share=0.1133
+    ab_test_decision=A  ab_test_run_id=57a643ad6012409cb4badba7de9280c8
+    Riesgo de déficit, balance o excedente de bicis en las próximas 3 horas (clasificación). Reentrenamiento de la v1 (hgb_balanced) con datos hasta 2026-06-30 20:00:00.
+
+v4  run 4e5c6c10860649109ee27d4ee29b122c  hgb_balanced  stage_of_work=retrain
+    train_end=2026-08-31  hiperparámetros={'max_iter': '150', 'learning_rate': '0.08', 'max_depth': '6'}
+    base_model_version=1  train_cutoff=2026-08-31 20:00:00  train_rows=1151850  train_deficit_share=0.1117
+    ab_test_decision=A  ab_test_run_id=19aba59f62614d90a61234ebc3b8221c
     Riesgo de déficit, balance o excedente de bicis en las próximas 3 horas (clasificación). Reentrenamiento de la v1 (hgb_balanced) con datos hasta 2026-08-31 20:00:00.
 

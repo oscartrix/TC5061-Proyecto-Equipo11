@@ -1,7 +1,7 @@
 # Monitoreo de data drift con Evidently — Equipo 11
 
 Modelo monitoreado: champion de P2 (`mibici-equipo11-p2-riesgo`), clasificación de riesgo de déficit, balance o excedente de bicis en las próximas 3 horas.
-Código: `mi_bici/monitoring/prepare_data.py` y `mi_bici/monitoring/evidently_drift.py`
+Código: `mi_bici/monitoring/prepare_data.py`, `mi_bici/monitoring/evidently_drift.py` y `mi_bici/monitoring/ab_testing.py`
 Notebook: `notebooks/02-monitoreo-evidently-drift.ipynb`
 
 ## 1. Periodos elegidos
@@ -128,8 +128,8 @@ Desempeño del champion (`mibici-equipo11-p2-riesgo` v1, `hgb_balanced`) por mes
 **Qué implica para el proyecto**
 
 - El drift actual **no obliga a un reentrenamiento urgente**: las métricas de jul-sep están al nivel de validación.
-- El riesgo está en la **tendencia**: la proporción de déficit baja desde dic-2025 y el drift en las presiones se mantiene aun descontando la estacionalidad. Un reentrenamiento con datos de 2026 permitiría ajustar el modelo a la nueva prevalencia; eso es lo que evalúa la versión challenger (M3) en el A/B testing (M4).
-- El score de drift de las variables de presión es la señal de monitoreo más útil: coincide con las caídas de precisión y F1. Es candidato a disparador de continuous training (M5).
+- El riesgo está en la **tendencia**: la proporción de déficit baja desde dic-2025 y el drift en las presiones se mantiene aun descontando la estacionalidad. Un reentrenamiento con datos de 2026 permitiría ajustar el modelo a la nueva prevalencia; eso es lo que evalúa el A/B testing de la sección 6.
+- El score de drift de las variables de presión es la señal de monitoreo más útil: coincide con las caídas de precisión y F1. Es candidato a disparador de continuous training (sección 7).
 
 **Limitaciones**
 
@@ -138,3 +138,72 @@ Desempeño del champion (`mibici-equipo11-p2-riesgo` v1, `hgb_balanced`) por mes
 - La evaluación corresponde al champion v1 (corrida `bbb0b0fa`) y a los datos procesados con `data_version` `a6306ebfef13`. Si el equipo regenera los datos o cambia el champion, los números deben recalcularse.
 
 Evidencia: `docs/evidencia/monitoreo/02_drift_vs_desempeno.txt`, `drift_vs_desempeno_p2.csv`, `p2_by_month.csv` y `p2_evaluation_metadata.json`.
+
+## 6. A/B testing
+
+Código: `mi_bici/monitoring/ab_testing.py`. Se ejecuta con `make retrain-jun` y `make ab-test`, o con `mlflow run . -e ab_test`.
+
+### 6.1 Versiones comparadas
+
+| | Versión | Alias | Familia | Datos de entrenamiento | % déficit en entrenamiento |
+|---|---|---|---|---|---:|
+| A | v1 | `champion` | `hgb_balanced` | 2024-01-15 a 2025-12-31 | 12.1 % |
+| B | v3 | `retrain-jun` | `hgb_balanced` | 2024-01-15 a 2026-06-30 | 11.3 % |
+| B' | v4 | `retrain` | `hgb_balanced` | 2024-01-15 a 2026-08-31 | 11.2 % |
+
+B y B' se entrenan con `mi_bici/modeling/retrain.py`, que copia la familia y los hiperparámetros del champion. Así, la única diferencia entre versiones es la ventana de datos.
+
+### 6.2 Diseño
+
+- **Mismo conjunto de evaluación:** las dos versiones predicen las mismas 110 250 filas de jul-sep 2026, el periodo actual del reporte de drift.
+- **Sin fuga de información:** el script falla si una versión entrenó con datos del periodo evaluado. Por eso B se entrena solo hasta junio. B' (hasta agosto) ya vio jul-ago, así que solo se compara en septiembre (35 850 filas).
+- **Incertidumbre:** IC 95 % de la diferencia B − A con bootstrap pareado por bloques estación-día (4600 bloques, 1000 réplicas, semilla 42). Las horas de una misma estación y día no son independientes, y remuestrear por fila daría intervalos demasiado estrechos.
+- **McNemar exacto:** compara los aciertos fila por fila.
+- **Tráfico simulado 50/50:** cada bloque estación-día se asigna al azar a A o a B y cada versión se mide solo con su tráfico. Es la forma que tendría el A/B en producción.
+- **Regla de decisión fijada antes de ver los resultados:** B queda vigente si el límite inferior del IC del recall de déficit es ≥ −0.01 (el objetivo de P2 es no perder déficits) **y** el límite inferior del IC del F1 macro o de la precisión de déficit es > 0. Se pide una mejora en F1 o en precisión porque el drift (sección 5.2) degrada primero la precisión.
+
+### 6.3 Resultados (jul-sep 2026, A = v1, B = v3)
+
+| Métrica | A (champion) | B (retrain-jun) | B − A | IC 95 % |
+|---|---:|---:|---:|---|
+| F1 macro | 0.5490 | 0.5480 | −0.0010 | [−0.0020, +0.0001] |
+| Recall déficit | 0.7751 | 0.7830 | +0.0079 | [+0.0047, +0.0109] |
+| Precisión déficit | 0.2945 | 0.2944 | −0.0001 | [−0.0014, +0.0011] |
+| Accuracy | 0.6456 | 0.6434 | −0.0022 | |
+| Déficits no detectados | 2287 | 2207 | −80 | |
+| Falsas alertas de déficit | 18 885 | 19 085 | +200 | |
+
+- **McNemar:** A acierta en 1845 filas en las que B falla, y B en 1610 en las que A falla (p = 6.8 × 10⁻⁵). A es más exacta en total.
+- **Tráfico simulado 50/50:** A con 54 600 filas (F1 0.548, recall de déficit 0.773, precisión 0.294) y B con 55 650 (0.549, 0.784, 0.295). Da el mismo patrón que la comparación pareada.
+- **Por mes:**
+
+| Mes | Recall déficit A | Recall déficit B | Precisión déficit A | Precisión déficit B | F1 A | F1 B |
+|---|---:|---:|---:|---:|---:|---:|
+| 2026-07 | 0.775 | 0.787 | 0.271 | 0.273 | 0.543 | 0.544 |
+| 2026-08 | 0.772 | 0.775 | 0.305 | 0.302 | 0.555 | 0.551 |
+| 2026-09 | 0.778 | 0.787 | 0.307 | 0.307 | 0.548 | 0.547 |
+
+- **Septiembre, A = v1 contra B' = v4:** el patrón es el mismo. Recall de déficit +0.0118 [+0.0070, +0.0172], F1 −0.0008 [−0.0027, +0.0011] y precisión +0.0007 [−0.0015, +0.0031]. McNemar p = 0.007 a favor de A.
+
+### 6.4 Decisión
+
+**A (v1) se mantiene como `@champion`.** B detecta un poco más de déficits: unos 80 más en tres meses, de 10 170, con un IC que no incluye el cero. A cambio, emite 200 falsas alertas más y no mejora F1 ni precisión, que eran las métricas que el reentrenamiento debía corregir. La versión B queda en el registry con la etiqueta `ab_test_decision=A`, y la corrida `p2-ab_test` guarda las métricas, los IC y las gráficas.
+
+**Por qué el reentrenamiento casi no cambia el modelo:** con una ventana acumulada, los 6 meses de 2026 son el 20 % de los datos de B. La proporción de déficit que ve B en su entrenamiento baja solo de 12.1 % a 11.3 %, mientras que en el periodo actual es de 9.2 %. El modelo sigue calibrado para la prevalencia anterior. Reentrenar con más datos no basta; hay que cambiar cómo se pondera el periodo reciente.
+
+**Limitaciones:** el A/B es offline, sobre tráfico histórico, porque la API de la semana 8 sirve P1 y no P2. Las conclusiones aplican a la misma familia e hiperparámetros; no se probó otro tipo de modelo.
+
+## 7. Recomendación sobre Continuous Training
+
+**No reentrenar ni promover ahora, pero dejar el reentrenamiento automatizado y con una compuerta.**
+
+1. **Ahora:** el champion tiene en jul-sep un desempeño igual o mejor que en validación (sección 5.2). La versión reentrenada no mejora F1 ni precisión. Promoverla agregaría falsas alertas a cambio de una ganancia pequeña en recall.
+2. **Disparadores** (revisión mensual con el `schedule` del pipeline):
+   - **Por desempeño, que decide:** precisión de déficit mensual menor que 0.246 (0.03 por debajo de la de validación, 0.276) o recall de déficit menor que 0.72, el peor mes observado. `risk_class` se conoce 3 horas después de cada predicción, así que el desempeño real se puede medir sin esperar.
+   - **Por drift, que avisa:** score de `pressure_last_3h` ≥ 0.15. Con este umbral se habría activado en mayo, junio y julio de 2026 (0.204, 0.194 y 0.159), los meses con peor precisión (0.249, 0.258 y 0.271). En ese caso se entrena un challenger y se corre el A/B, pero solo se promueve si gana.
+   - El umbral de detección de 0.1 no sirve como disparador. Las 4 presiones lo superaron todos los meses de enero a agosto mientras el desempeño se mantenía estable, así que reentrenar con él significaría hacerlo cada mes sin beneficio.
+3. **Estrategia de reentrenamiento:** usar una ventana móvil de 12 meses, o dar más peso a los meses recientes, en lugar de una ventana acumulada, para que el modelo aprenda la prevalencia actual de déficit. Es el siguiente experimento a correr con el mismo `ab_testing.py`.
+4. **Compuerta de promoción:** ninguna versión recibe `@champion` sin pasar el A/B con la regla de la sección 6.2 sobre un periodo que no haya visto. Solo entonces se usa `--promote`.
+5. **Ya automatizado en el CI:** el pipeline reentrena (`retrain-jun` y `retrain`), genera el reporte de Evidently, corre los dos A/B y sube los reportes como artefactos. Falta conectar los disparadores del punto 2 para que el reentrenamiento corra solo cuando se cumplan.
+
+Evidencia: `docs/evidencia/monitoreo/03_registry_p2.txt`, `04_ab_testing.txt`, `ab_test_summary.json`, `ab_test_sep_summary.json`, `ab_test_by_month.csv`, `ab_test_metricas.png`, `05_evidently_drift.png`, `06_evidently_calidad.png` y `07_drift_vs_desempeno.png`.

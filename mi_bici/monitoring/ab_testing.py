@@ -18,6 +18,7 @@ from mlflow import MlflowClient
 import numpy as np
 import pandas as pd
 from scipy.stats import binomtest
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
 import typer
 
 from mi_bici.config import (
@@ -29,8 +30,6 @@ from mi_bici.config import (
 )
 from mi_bici.modeling.evaluation import RISK_LABELS, class_statistics
 from mi_bici.modeling.train import P2_FEATURES, plain_dtypes
-
-from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
 
 app = typer.Typer()
 
@@ -216,32 +215,33 @@ def plot_comparison(result: dict, labels: dict, path) -> None:
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
-    
+
+
 def plot_confusion_matrices(actual, predictions, labels, name):
     """Genera una matriz de confusión por versión del modelo."""
     paths = []
 
-    for arm in ("A", "B"):
+    for arm in ('A', 'B'):
         y_pred = predictions[arm]
 
         cm = confusion_matrix(
             actual,
             y_pred,
-            labels=["deficit", "balanceado", "excedente"],
+            labels=list(RISK_LABELS),
         )
 
         fig, ax = plt.subplots(figsize=(7, 6))
 
         disp = ConfusionMatrixDisplay(
             confusion_matrix=cm,
-            display_labels=["deficit", "balanceado", "excedente"],
+            display_labels=list(RISK_LABELS),
         )
-        disp.plot(ax=ax, cmap="Blues", values_format="d", colorbar=False)
+        disp.plot(ax=ax, cmap='Blues', values_format='d', colorbar=False)
 
-        ax.set_title(f"Matriz de confusión - {labels[arm]}")
+        ax.set_title(f'Matriz de confusión - {labels[arm]}')
         fig.tight_layout()
 
-        path = OUTPUT_DIR / f"{name}_confusion_{arm}.png"
+        path = OUTPUT_DIR / f'{name}_confusion_{arm}.png'
         fig.savefig(path, dpi=150)
         plt.close(fig)
 
@@ -249,7 +249,16 @@ def plot_confusion_matrices(actual, predictions, labels, name):
 
     return paths
 
-def save_outputs(result: dict, info: dict, start: str, end: str, name: str, actual=None, predictions=None,):
+
+def save_outputs(
+    result: dict,
+    info: dict,
+    start: str,
+    end: str,
+    name: str,
+    actual=None,
+    predictions=None,
+):
     """Escribe el resumen JSON, la tabla por mes y la gráfica en reports/ab_testing."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     summary_path = OUTPUT_DIR / f'{name}_summary.json'
@@ -269,9 +278,7 @@ def save_outputs(result: dict, info: dict, start: str, end: str, name: str, actu
     files = [summary_path, month_path, plot_path]
 
     if actual is not None and predictions is not None:
-        files.extend(
-            plot_confusion_matrices(actual, predictions, labels, name)
-        )
+        files.extend(plot_confusion_matrices(actual, predictions, labels, name))
 
     return summary, files
 
@@ -343,13 +350,8 @@ def main(
 
     result = compare_versions(df, preds['A'], preds['B'])
     summary, files = save_outputs(
-    result,
-    info,
-    start,
-    end,
-    name,
-    actual=df['risk_class'],
-    predictions=preds)
+        result, info, start, end, name, actual=df['risk_class'], predictions=preds
+    )
     run_id = log_to_mlflow(client, summary, files, name)
     for metric in KEY_METRICS:
         ci = summary['ci95'][metric]

@@ -1,0 +1,9 @@
+,retrain_minus_champion
+accuracy,0.0010878661087865282
+f1_macro,0.00018002359558977332
+precision_macro,0.006299974613251269
+recall_macro,-0.0009888173499921216
+recall_deficit,-0.0024786560176259798
+precision_deficit,0.013381867272818648
+missed_deficits,9.0
+false_deficit_alerts,-38.0

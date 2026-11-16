@@ -336,6 +336,14 @@ def run_p2(model: str, hparams: dict) -> None:
     val_df = df[df['split'] == 'val'].copy()
     test_df = df[df['split'] == 'test'].copy()
 
+    # Reservar septiembre de 2026 para la evaluación A/B offline.
+    # Algunos datasets sintéticos de pruebas no incluyen hour_ts.
+    if "hour_ts" in test_df.columns:
+        test_df = test_df[
+            pd.to_datetime(test_df["hour_ts"])
+            < pd.Timestamp("2026-09-01")
+        ].copy()
+
     labels_order = ['deficit', 'balanceado', 'excedente']
     extra = {'horizon': '3_hours', 'pressure_threshold': 0.30}
 

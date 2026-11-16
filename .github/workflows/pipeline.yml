@@ -142,6 +142,34 @@ jobs:
               --experiment-name mibici-equipo11 --env-manager local
           done
 
+      - name: Reentrenar P2 hasta jun-2026 y hasta ago-2026
+        run: |
+          mlflow run . -e retrain -P train_end=2026-06-30 -P alias=retrain-jun \
+            --experiment-name mibici-equipo11 --env-manager local
+          mlflow run . -e retrain --experiment-name mibici-equipo11 --env-manager local
+
+      - name: Drift de P2 con Evidently
+        run: |
+          make drift-report
+          python -m mi_bici.monitoring.drift_performance
+
+      - name: A/B testing de P2
+        run: |
+          mlflow run . -e ab_test --experiment-name mibici-equipo11 --env-manager local
+          # retrain vio jul-ago, solo se compara en septiembre
+          mlflow run . -e ab_test -P challenger_alias=retrain -P start=2026-09-01 -P name=ab_test_sep \
+            --experiment-name mibici-equipo11 --env-manager local
+
+      - name: Guardar reportes de drift y A/B testing
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-monitoreo
+          path: |
+            reports/data_drift/evidently_drift_p2*
+            reports/data_drift/drift_vs_desempeno_p2.csv
+            reports/ab_testing
+
       - name: Exportar el champion de P1
         run: python scripts/export_model.py --question p1 --output models/p1_champion
 
@@ -169,9 +197,19 @@ jobs:
             -H 'Content-Type: application/json' -d '{"instances":[{"month":13}]}')
           [ "$code" = 422 ]
 
+      - name: Prueba de carga con Locust
+        run: |
+          python scripts/run_locust_test.py --no-autostart-server --users 10 --spawn-rate 5 \
+            --run-time 20s --report-path reports/locust_ci.html
+
+      - name: Validar docker-compose
+        run: docker compose config --quiet
+
       - name: Guardar la respuesta de la API
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: respuesta-api
-          path: respuesta.json
+          path: |
+            respuesta.json
+            reports/locust_ci.html

@@ -30,6 +30,8 @@ from mi_bici.config import (
 from mi_bici.modeling.evaluation import RISK_LABELS, class_statistics
 from mi_bici.modeling.train import P2_FEATURES, plain_dtypes
 
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
+
 app = typer.Typer()
 
 MODEL_NAME = REGISTERED_MODELS['p2'][0]
@@ -214,9 +216,40 @@ def plot_comparison(result: dict, labels: dict, path) -> None:
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+    
+def plot_confusion_matrices(actual, predictions, labels, name):
+    """Genera una matriz de confusión por versión del modelo."""
+    paths = []
 
+    for arm in ("A", "B"):
+        y_pred = predictions[arm]
 
-def save_outputs(result: dict, info: dict, start: str, end: str, name: str):
+        cm = confusion_matrix(
+            actual,
+            y_pred,
+            labels=["deficit", "balanceado", "excedente"],
+        )
+
+        fig, ax = plt.subplots(figsize=(7, 6))
+
+        disp = ConfusionMatrixDisplay(
+            confusion_matrix=cm,
+            display_labels=["deficit", "balanceado", "excedente"],
+        )
+        disp.plot(ax=ax, cmap="Blues", values_format="d", colorbar=False)
+
+        ax.set_title(f"Matriz de confusión - {labels[arm]}")
+        fig.tight_layout()
+
+        path = OUTPUT_DIR / f"{name}_confusion_{arm}.png"
+        fig.savefig(path, dpi=150)
+        plt.close(fig)
+
+        paths.append(path)
+
+    return paths
+
+def save_outputs(result: dict, info: dict, start: str, end: str, name: str, actual=None, predictions=None,):
     """Escribe el resumen JSON, la tabla por mes y la gráfica en reports/ab_testing."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     summary_path = OUTPUT_DIR / f'{name}_summary.json'
@@ -232,7 +265,15 @@ def save_outputs(result: dict, info: dict, start: str, end: str, name: str):
     result['by_month'].to_csv(month_path, index=False)
     labels = {k: f'{k}: v{v["version"]} ({v["alias"]})' for k, v in info.items()}
     plot_comparison(result, labels, plot_path)
-    return summary, [summary_path, month_path, plot_path]
+
+    files = [summary_path, month_path, plot_path]
+
+    if actual is not None and predictions is not None:
+        files.extend(
+            plot_confusion_matrices(actual, predictions, labels, name)
+        )
+
+    return summary, files
 
 
 def log_to_mlflow(client: MlflowClient, summary: dict, files: list, name: str) -> str:
@@ -301,7 +342,14 @@ def main(
     )
 
     result = compare_versions(df, preds['A'], preds['B'])
-    summary, files = save_outputs(result, info, start, end, name)
+    summary, files = save_outputs(
+    result,
+    info,
+    start,
+    end,
+    name,
+    actual=df['risk_class'],
+    predictions=preds)
     run_id = log_to_mlflow(client, summary, files, name)
     for metric in KEY_METRICS:
         ci = summary['ci95'][metric]

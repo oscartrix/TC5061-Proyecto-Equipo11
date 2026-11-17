@@ -490,7 +490,7 @@ INFERENCE_BACKEND=onnx MODEL_PATH=models/p1_champion uvicorn mi_bici.api.main:ap
 | `mlflow` | `Dockerfile` | `5001` → `5000` | Volúmenes `mibici_equipo11_db` y `mibici_equipo11_artifacts`; monta `data/`, `models/` y `reports/` |
 | `api` | `Containerfile` | `8000` | Modelo champion de P1 incluido en la imagen |
 
-La imagen de la API copia `models/p1_champion`, por lo que el modelo se exporta una vez antes del primer levantamiento:
+La imagen de la API copia `models/p1_champion`, por lo que el modelo se exporta una vez antes del primer levantamiento. La exportación lo descarga del servidor de tracking local (`MLFLOW_TRACKING_URI`, puerto `5000`), que debe tener registrado el champion de P1 (Pasos 1 a 7); el MLflow del compose usa su propio volumen y arranca vacío:
 
 ```bash
 python scripts/export_model.py --question p1 --output models/p1_champion

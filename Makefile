@@ -160,6 +160,18 @@ api-run:
 	$(CONTAINER_ENGINE) run --rm -p 8000:8000 mibici-api
 
 
+## Levantar MLflow y la API con compose
+.PHONY: up
+up:
+	$(CONTAINER_ENGINE) compose up -d --build
+
+
+## Detener los servicios de compose (conserva los volúmenes de MLflow)
+.PHONY: down
+down:
+	$(CONTAINER_ENGINE) compose down
+
+
 ## Ejecutar pruebas de carga con Locust y generar reporte con gráficas
 .PHONY: locust-test
 locust-test:

@@ -481,6 +481,31 @@ INFERENCE_BACKEND=onnx MODEL_PATH=models/p1_champion uvicorn mi_bici.api.main:ap
 
 `export_onnx.py` guarda `model.onnx` junto al modelo y compara sus predicciones con las de sklearn. Sin `INFERENCE_BACKEND`, la API sigue usando sklearn. Con el HGB actual, ONNX trabaja en float32 y en algunas filas la predicción cambia; ver `week-8/analisis_onnx.md`.
 
+### Orquestación con Docker Compose
+
+[`docker-compose.yml`](docker-compose.yml) levanta el servidor de MLflow y la API en la red `mibici_network`. La API arranca cuando el healthcheck de MLflow responde.
+
+| Servicio | Imagen | Puerto | Datos |
+|---|---|---|---|
+| `mlflow` | `Dockerfile` | `5001` → `5000` | Volúmenes `mibici_equipo11_db` y `mibici_equipo11_artifacts`; monta `data/`, `models/` y `reports/` |
+| `api` | `Containerfile` | `8000` | Modelo champion de P1 incluido en la imagen |
+
+La imagen de la API copia `models/p1_champion`, por lo que el modelo se exporta una vez antes del primer levantamiento. La exportación lo descarga del servidor de tracking local (`MLFLOW_TRACKING_URI`, puerto `5000`), que debe tener registrado el champion de P1 (Pasos 1 a 7); el MLflow del compose usa su propio volumen y arranca vacío:
+
+```bash
+python scripts/export_model.py --question p1 --output models/p1_champion
+make up      # docker compose up -d --build
+make down    # docker compose down; los runs de MLflow se conservan en los volúmenes
+```
+
+Con Podman: `make up CONTAINER_ENGINE=podman`. MLflow queda en `http://127.0.0.1:5001` y la API en `http://127.0.0.1:8000/docs`.
+
+La API se limita a 1 CPU y 1 GB de memoria, los recursos de la instancia de referencia para las pruebas de carga. Se cambian con variables de entorno o en `.env`:
+
+```bash
+API_CPUS=2 API_MEMORY=2g make up
+```
+
 ### Paso 8: Pruebas, validación de datos y seguridad
 
 Entorno de pruebas (además de `requirements.txt`):
@@ -620,7 +645,7 @@ make ab-test                                   # champion contra retrain-jun sob
 ![A/B testing de P2](docs/evidencia/monitoreo/ab_test_metricas.png)
 
 ### Integración continua
-El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks, entrenamiento de todos los modelos, dos búsquedas, registro, evaluación contra baselines e inferencia con los tres modelos `champion`. Después reentrena P2, genera el reporte de drift con Evidently, corre el A/B testing, construye la imagen de la API, la prueba con peticiones y con una prueba de carga de Locust, y valida `docker-compose.yaml`. Los reportes de validación y evaluación se suben como artefactos incluso si falla el paso correspondiente; un error de calidad o drift impide continuar con el entrenamiento. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
+El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks, entrenamiento de todos los modelos, dos búsquedas, registro, evaluación contra baselines e inferencia con los tres modelos `champion`. Después reentrena P2, genera el reporte de drift con Evidently, corre el A/B testing, construye la imagen de la API, la prueba con peticiones y con una prueba de carga de Locust, y valida `docker-compose.yml`. Los reportes de validación y evaluación se suben como artefactos incluso si falla el paso correspondiente; un error de calidad o drift impide continuar con el entrenamiento. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
 
 ---
 

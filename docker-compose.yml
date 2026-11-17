@@ -36,15 +36,18 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Si se incluye el modelo pre-exportado en la imagen o montado:
+      # Si se incluye el modelo pre-exportado en la imagen:
       - MODEL_PATH=/app/models/p1_champion
       # En caso de requerir conexión al registry de MLflow si se omite MODEL_PATH:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - MODEL_NAME=mibici-equipo11-p1-demanda
       - MODEL_ALIAS=champion
-    volumes:
-      # Permite actualizar el modelo local sin reconstruir la imagen si se desea
-      - ./models:/app/models:ro
+    # Recursos de la instancia de referencia; se cambian con API_CPUS y API_MEMORY
+    deploy:
+      resources:
+        limits:
+          cpus: "${API_CPUS:-1}"
+          memory: ${API_MEMORY:-1g}
     depends_on:
       mlflow:
         condition: service_healthy

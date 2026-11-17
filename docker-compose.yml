@@ -42,6 +42,12 @@ services:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - MODEL_NAME=mibici-equipo11-p1-demanda
       - MODEL_ALIAS=champion
+    # Recursos de la instancia de referencia; se cambian con API_CPUS y API_MEMORY
+    deploy:
+      resources:
+        limits:
+          cpus: "${API_CPUS:-1}"
+          memory: ${API_MEMORY:-1g}
     depends_on:
       mlflow:
         condition: service_healthy

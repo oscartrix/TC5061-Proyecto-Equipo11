@@ -38,6 +38,8 @@ jobs:
     needs: tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: mibici
     steps:
       - uses: actions/checkout@v4
 
@@ -77,3 +79,23 @@ jobs:
           load: true
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
+
+      - name: Levantar el sistema con docker compose
+        run: docker compose up -d --no-build --wait --wait-timeout 180
+
+      - name: Probar la API levantada con compose
+        run: |
+          curl -sf http://127.0.0.1:5001/health
+          curl -sf http://127.0.0.1:8000/model-info
+          code=$(curl -s -o respuesta.json -w '%{http_code}' -X POST http://127.0.0.1:8000/p1/predict \
+            -H 'Content-Type: application/json' -d '{"instances":[{"lag_1d":12.0,"lag_7d":11.0,"lag_14d":3.0,"lag_21d":4.0,"rolling_mean_7d":11.857143,"capacity":19,"day_of_week":2,"month":9,"is_weekend":0,"is_holiday":0,"zone":"ZPN"}]}')
+          cat respuesta.json
+          [ "$code" = 200 ]
+
+      - name: Registros de compose
+        if: failure()
+        run: docker compose logs
+
+      - name: Detener docker compose
+        if: always()
+        run: docker compose down -v

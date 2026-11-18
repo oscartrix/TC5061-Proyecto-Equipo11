@@ -470,6 +470,42 @@ Variables del contenedor:
 
 Captura de la API respondiendo desde el contenedor: `docs/evidencia/api/06_swagger_contenedor.png`; el resto de las capturas y registros están en la misma carpeta, y el reporte en `docs/TC5061_Reporte_Despliegue_Equipo11.pdf`. Comparación con ONNX Runtime: `docs/analisis_onnx.md`.
 
+#### Pruebas de Carga y Rendimiento con Locust
+
+Se implementó un escenario de prueba de carga con **Locust** (`scripts/locustfile.py`) para evaluar la capacidad de respuesta y estabilidad del endpoint de predicción (`/p1/predict`) bajo concurrencia de usuarios simulados:
+
+- **Escenario simulado:**
+  - Usuarios concurrentes: 25 usuarios virtuales con tiempo de espera entre tareas de 0.5 a 2.0 s.
+  - Tasa de aparición (*spawn rate*): 5 usuarios/segundo.
+  - Tareas evaluadas: peticiones de inferencia individual (`POST /p1/predict` con 1 instancia) y en lote (`POST /p1/predict` en batch de 10 instancias), además de endpoints auxiliares (`GET /health` y `GET /model-info`).
+
+Para ejecutar la prueba y generar el reporte HTML con gráficas de desempeño:
+
+```bash
+# Ejecución automatizada con levantamiento de servidor local y reporte con gráficas:
+MODEL_PATH=models/p1_champion python scripts/run_locust_test.py --users 25 --spawn-rate 5 --run-time 20s
+
+# O bien, usando directamente Locust en modo headless:
+locust -f scripts/locustfile.py --headless -u 25 -r 5 -t 20s \
+    --host http://localhost:8000 \
+    --html reports/locust_report.html
+```
+
+##### Resultados y Métricas de Desempeño
+
+| Endpoint | Peticiones (# reqs) | Fallos (# fails) | Tasa de Error | Throughput (RPS) | Mediana Latencia (p50) | Latencia p95 | Latencia Máx |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `POST /p1/predict (1 instancia)` | 199 | 0 | 0.00% | 10.05 req/s | 6 ms | 19 ms | 39 ms |
+| `POST /p1/predict (batch 10)` | 69 | 0 | 0.00% | 3.49 req/s | 6 ms | 10 ms | 21 ms |
+| `GET /health` | 78 | 0 | 0.00% | 3.94 req/s | 2 ms | 12 ms | 19 ms |
+| `GET /model-info` | 29 | 0 | 0.00% | 1.47 req/s | 2 ms | 15 ms | 17 ms |
+| **Total Agregado** | **375** | **0** | **0.00%** | **18.94 req/s** | **6 ms** | **16 ms** | **39 ms** |
+
+El reporte completo generado en [`reports/locust_report.html`](reports/locust_report.html) contiene gráficas interactivas de:
+1. **Peticiones por segundo (RPS) y fallos en el tiempo**.
+2. **Distribución de tiempos de respuesta y percentiles de latencia** (p50, p95, p99).
+3. **Número de usuarios concurrentes en el tiempo**.
+
 Estrategia de despliegue: inferencia en tiempo real. La demanda del día siguiente se consulta por estación y las filas ya vienen calculadas (rezagos y calendario), por lo que una respuesta síncrona por petición es suficiente; para recalcular todas las estaciones se envían hasta 500 filas por llamada. Se incrusta el modelo en la imagen para que la versión servida quede fija y la imagen funcione igual en cualquier máquina.
 
 #### Inferencia con ONNX Runtime (opcional)

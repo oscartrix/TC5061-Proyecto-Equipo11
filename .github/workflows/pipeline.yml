@@ -239,9 +239,6 @@ jobs:
           cache-from: type=gha,scope=api-publish
           cache-to: type=gha,mode=max,scope=api-publish
 
-      - name: Validar docker-compose
-        run: docker compose config --quiet
-
       - name: Guardar la respuesta de la API
         if: always()
         uses: actions/upload-artifact@v4

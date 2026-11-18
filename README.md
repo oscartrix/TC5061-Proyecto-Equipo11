@@ -3,6 +3,8 @@
 <a target="_blank" href="https://cookiecutter-data-science.drivendata.org/">
     <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
 </a>
+<a href="https://github.com/oscartrix/TC5061-Proyecto-Equipo11/actions/workflows/ci.yml"><img src="https://github.com/oscartrix/TC5061-Proyecto-Equipo11/actions/workflows/ci.yml/badge.svg" alt="ci" /></a>
+<a href="https://github.com/oscartrix/TC5061-Proyecto-Equipo11/actions/workflows/pipeline.yml"><img src="https://github.com/oscartrix/TC5061-Proyecto-Equipo11/actions/workflows/pipeline.yml/badge.svg" alt="pipeline" /></a>
 
 Propuesta técnica, pipeline reproducible de ingesta y preprocesamiento, módulo de ingeniería de características y experimento base en **MLflow Tracking** para el sistema de bicicleta pública **MiBici** del Área Metropolitana de Guadalajara (AMG).
 
@@ -488,14 +490,20 @@ INFERENCE_BACKEND=onnx MODEL_PATH=models/p1_champion uvicorn mi_bici.api.main:ap
 | Servicio | Imagen | Puerto | Datos |
 |---|---|---|---|
 | `mlflow` | `Dockerfile` | `5001` → `5000` | Volúmenes `mibici_equipo11_db` y `mibici_equipo11_artifacts`; monta `data/`, `models/` y `reports/` |
-| `api` | `Containerfile` | `8000` | Modelo champion de P1 incluido en la imagen |
+| `api` | `ghcr.io/oscartrix/mibici-api:latest` (o `Containerfile`) | `8000` | Modelo champion de P1 incluido en la imagen |
 
-La imagen de la API copia `models/p1_champion`, por lo que el modelo se exporta una vez antes del primer levantamiento. La exportación lo descarga del servidor de tracking local (`MLFLOW_TRACKING_URI`, puerto `5000`), que debe tener registrado el champion de P1 (Pasos 1 a 7); el MLflow del compose usa su propio volumen y arranca vacío:
+La imagen de la API se descarga de GHCR, donde el pipeline la publica con el champion de P1 en cada push a `main`, así que en un clon limpio basta un comando:
+
+```bash
+make up      # docker compose up -d
+make down    # docker compose down; los runs de MLflow se conservan en los volúmenes
+```
+
+Si la imagen no se puede descargar, compose la construye con el `Containerfile`, que copia `models/p1_champion`. En ese caso, o para probar cambios locales en la API, el modelo se exporta antes desde el servidor de tracking local (`MLFLOW_TRACKING_URI`, puerto `5000`), que debe tener registrado el champion de P1 (Pasos 1 a 7); el MLflow del compose usa su propio volumen y arranca vacío:
 
 ```bash
 python scripts/export_model.py --question p1 --output models/p1_champion
-make up      # docker compose up -d --build
-make down    # docker compose down; los runs de MLflow se conservan en los volúmenes
+docker compose up -d --build
 ```
 
 Con Podman: `make up CONTAINER_ENGINE=podman`. MLflow queda en `http://127.0.0.1:5001` y la API en `http://127.0.0.1:8000/docs`.
@@ -645,7 +653,12 @@ make ab-test                                   # champion contra retrain-jun sob
 ![A/B testing de P2](docs/evidencia/monitoreo/ab_test_metricas.png)
 
 ### Integración continua
-El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks, entrenamiento de todos los modelos, dos búsquedas, registro, evaluación contra baselines e inferencia con los tres modelos `champion`. Después reentrena P2, genera el reporte de drift con Evidently, corre el A/B testing, construye la imagen de la API, la prueba con peticiones y con una prueba de carga de Locust, y valida `docker-compose.yml`. Los reportes de validación y evaluación se suben como artefactos incluso si falla el paso correspondiente; un error de calidad o drift impide continuar con el entrenamiento. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
+El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks, entrenamiento de todos los modelos, dos búsquedas, registro, evaluación contra baselines e inferencia con los tres modelos `champion`. Después reentrena P2, genera el reporte de drift con Evidently, corre el A/B testing, construye la imagen de la API y la prueba con peticiones y con una prueba de carga de Locust. En cada push a `main` publica la imagen en GHCR (`ghcr.io/oscartrix/mibici-api`, etiquetas `latest` y el SHA del commit) para `linux/amd64` y `linux/arm64`. Los reportes de validación y evaluación se suben como artefactos incluso si falla el paso correspondiente; un error de calidad o drift impide continuar con el entrenamiento. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
+
+El workflow [`ci.yml`](.github/workflows/ci.yml) es la revisión rápida y corre en cada push a cualquier rama y en cada PR hacia `main`:
+
+- `tests`: pytest en una matriz de Linux y macOS, con caché de pip.
+- `images`: genera un smoke model de P1 con `scripts/smoke_model.py` (no hay registry con el champion en ese job), construye las imágenes de MLflow y de la API con caché de capas de GitHub Actions, levanta el sistema con `docker compose up --wait`, prueba `/health` de MLflow y `/model-info` y `/p1/predict` de la API, y lo detiene con `docker compose down -v`.
 
 ---
 

@@ -28,6 +28,8 @@ services:
 
   # API REST de Inferencia FastApi/Uvicorn (definida en Containerfile)
   api:
+    # Se descarga de GHCR; si no está disponible se construye con el Containerfile
+    image: ghcr.io/oscartrix/mibici-api:latest
     build:
       context: .
       dockerfile: Containerfile

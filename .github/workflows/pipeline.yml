@@ -50,6 +50,10 @@ jobs:
     needs: calidad
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # packages: write para publicar la imagen de la API en GHCR
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -202,8 +206,38 @@ jobs:
           python scripts/run_locust_test.py --no-autostart-server --users 10 --spawn-rate 5 \
             --run-time 20s --report-path reports/locust_ci.html
 
-      - name: Validar docker-compose
-        run: docker compose config --quiet
+      # Solo en push a main: la imagen lleva el champion que se acaba de probar
+      - name: Iniciar sesión en GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Emulación para arm64
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Buildx
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/setup-buildx-action@v3
+
+      # amd64 y arm64 para que el compose funcione también en Mac con Apple Silicon
+      - name: Publicar la imagen de la API en GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Containerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/mibici-api:latest
+            ghcr.io/${{ github.repository_owner }}/mibici-api:${{ github.sha }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=api-publish
+          cache-to: type=gha,mode=max,scope=api-publish
 
       - name: Guardar la respuesta de la API
         if: always()

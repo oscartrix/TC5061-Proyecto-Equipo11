@@ -163,7 +163,7 @@ api-run:
 ## Levantar MLflow y la API con compose
 .PHONY: up
 up:
-	$(CONTAINER_ENGINE) compose up -d --build
+	$(CONTAINER_ENGINE) compose up -d
 
 
 ## Detener los servicios de compose (conserva los volúmenes de MLflow)

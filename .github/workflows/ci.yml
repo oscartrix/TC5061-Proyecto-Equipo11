@@ -1,0 +1,101 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          pip install -r requirements.txt -r requirements-test.txt -r requirements-onnx.txt
+          pip install -e . --no-deps
+
+      - name: Pruebas
+        run: python -m pytest -q tests
+
+  images:
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: mibici
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          pip install -r requirements.txt
+          pip install -e . --no-deps
+
+      # El Containerfile copia models/p1_champion; aquí no hay registry con el champion
+      - name: Smoke model para la imagen de la API
+        run: python scripts/smoke_model.py --output models/p1_champion
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Caché de capas en GitHub Actions: solo se reconstruye lo que cambió
+      - name: Construir la imagen de MLflow
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          tags: mibici-mlflow
+          load: true
+          cache-from: type=gha,scope=mlflow
+          cache-to: type=gha,mode=max,scope=mlflow
+
+      - name: Construir la imagen de la API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Containerfile
+          tags: ghcr.io/oscartrix/mibici-api:latest
+          load: true
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Levantar el sistema con docker compose
+        run: docker compose up -d --no-build --wait --wait-timeout 180
+
+      - name: Probar la API levantada con compose
+        run: |
+          curl -sf http://127.0.0.1:5001/health
+          curl -sf http://127.0.0.1:8000/model-info
+          code=$(curl -s -o respuesta.json -w '%{http_code}' -X POST http://127.0.0.1:8000/p1/predict \
+            -H 'Content-Type: application/json' -d '{"instances":[{"lag_1d":12.0,"lag_7d":11.0,"lag_14d":3.0,"lag_21d":4.0,"rolling_mean_7d":11.857143,"capacity":19,"day_of_week":2,"month":9,"is_weekend":0,"is_holiday":0,"zone":"ZPN"}]}')
+          cat respuesta.json
+          [ "$code" = 200 ]
+
+      - name: Registros de compose
+        if: failure()
+        run: docker compose logs
+
+      - name: Detener docker compose
+        if: always()
+        run: docker compose down -v

@@ -746,7 +746,7 @@ gh run download <id> -n reportes-monitoreo
 
 ### FinOps
 
-El análisis completo está en [`docs/finops.md`](docs/finops.md) y se recalcula con `python scripts/finops.py` a partir de la prueba de carga. Usa precios on-demand de us-east-1 (Fargate: 0.04048 USD por vCPU-hora y 0.004445 USD por GB-hora). Resumen:
+El reporte de esta entrega (carga, recursos y FinOps) es [`docs/TC5061_Operacion_FinOps_Equipo11.pdf`](docs/TC5061_Operacion_FinOps_Equipo11.pdf). El análisis completo está en [`docs/finops.md`](docs/finops.md) y se recalcula con `python scripts/finops.py` a partir de la prueba de carga. Usa precios on-demand de us-east-1 (Fargate: 0.04048 USD por vCPU-hora y 0.004445 USD por GB-hora). Resumen:
 
 | | ONNX | sklearn |
 |---|---:|---:|

@@ -60,6 +60,12 @@ class ServedModel:
         return predict_features(self.model, align_features(features, self.model))
 
 
+def predict_rows(served_model, rows: list[dict]) -> list[float]:
+    """Predicciones de una lista de filas; no puede haber viajes negativos."""
+    predictions = served_model.predict(pd.DataFrame(rows))
+    return np.clip(predictions, 0.0, None).tolist()
+
+
 def align_features(features: pd.DataFrame, model: 'PyFuncModel') -> pd.DataFrame:
     """Cambia los tipos de datos a los que espera el modelo."""
     schema = model.metadata.get_input_schema()

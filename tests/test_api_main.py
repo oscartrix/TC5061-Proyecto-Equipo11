@@ -72,6 +72,7 @@ class FakeServedModel:
     name = 'modelo-prueba'
     version = '7'
     run_id = None
+    backend = 'sklearn'
 
     def __init__(self, result):
         self.result = result
@@ -101,6 +102,7 @@ def test_model_info(client):
         'model_name': 'modelo-prueba',
         'model_version': '7',
         'run_id': 'run-123',
+        'backend': 'sklearn',
     }
 
 

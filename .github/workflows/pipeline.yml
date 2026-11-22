@@ -174,8 +174,11 @@ jobs:
             reports/data_drift/drift_vs_desempeno_p2.csv
             reports/ab_testing
 
+      # model.onnx se compara contra sklearn con los datos de prueba antes de construir
       - name: Exportar el champion de P1
-        run: python scripts/export_model.py --question p1 --output models/p1_champion
+        run: |
+          python scripts/export_model.py --question p1 --output models/p1_champion
+          python scripts/export_onnx.py --model-dir models/p1_champion
 
       - name: Construir la imagen de la API
         run: docker build -f Containerfile -t mibici-api .
@@ -184,7 +187,7 @@ jobs:
         run: |
           docker run -d --name mibici-api -p 8000:8000 mibici-api
           for i in $(seq 1 30); do
-            curl -sf http://127.0.0.1:8000/health && exit 0
+            curl -sf http://127.0.0.1:8000/health && curl -s http://127.0.0.1:8000/model-info && exit 0
             sleep 2
           done
           docker logs mibici-api

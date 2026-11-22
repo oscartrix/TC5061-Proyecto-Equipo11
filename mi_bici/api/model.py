@@ -3,17 +3,17 @@
 from dataclasses import dataclass
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from loguru import logger
-import mlflow
-from mlflow import MlflowClient
-from mlflow.exceptions import MlflowException
-from mlflow.pyfunc import PyFuncModel
 import numpy as np
 import pandas as pd
 
 from mi_bici.config import MLFLOW_TRACKING_URI, REGISTERED_MODELS
-from mi_bici.modeling.predict import predict_features
+
+# MLflow se importa solo al usar sklearn; con ONNX la API no lo carga
+if TYPE_CHECKING:
+    from mlflow.pyfunc import PyFuncModel
 
 DEFAULT_MODEL_NAME = REGISTERED_MODELS['p1'][0]
 DEFAULT_MODEL_ALIAS = 'champion'
@@ -51,13 +51,16 @@ class ServedModel:
     name: str
     version: str
     run_id: str | None
-    model: PyFuncModel
+    model: 'PyFuncModel'
+    backend: str = 'sklearn'
 
     def predict(self, features: pd.DataFrame) -> np.ndarray:
+        from mi_bici.modeling.predict import predict_features
+
         return predict_features(self.model, align_features(features, self.model))
 
 
-def align_features(features: pd.DataFrame, model: PyFuncModel) -> pd.DataFrame:
+def align_features(features: pd.DataFrame, model: 'PyFuncModel') -> pd.DataFrame:
     """Cambia los tipos de datos a los que espera el modelo."""
     schema = model.metadata.get_input_schema()
     dtypes = {
@@ -70,6 +73,9 @@ def align_features(features: pd.DataFrame, model: PyFuncModel) -> pd.DataFrame:
 
 def load_local_model(path: Path) -> ServedModel:
     """Carga el modelo descargado del registry y empaquetado en la imagen."""
+    import mlflow
+    from mlflow.exceptions import MlflowException
+
     try:
         model = mlflow.pyfunc.load_model(str(path))
     except (MlflowException, OSError) as error:
@@ -87,11 +93,18 @@ def load_local_model(path: Path) -> ServedModel:
 def load_served_model(settings: ModelSettings | None = None) -> ServedModel:
     local_path = os.getenv('MODEL_PATH')
     if local_path and Path(local_path).is_dir():
+        onnx_path = Path(local_path) / 'model.onnx'
         if os.getenv('INFERENCE_BACKEND', 'sklearn') == 'onnx':
-            from mi_bici.api.onnx_model import load_onnx_model
+            if onnx_path.is_file():
+                from mi_bici.api.onnx_model import load_onnx_model
 
-            return load_onnx_model(Path(local_path))
+                return load_onnx_model(Path(local_path))
+            logger.warning(f'No existe {onnx_path}; se usa sklearn')
         return load_local_model(Path(local_path))
+    import mlflow
+    from mlflow import MlflowClient
+    from mlflow.exceptions import MlflowException
+
     settings = settings or ModelSettings.from_env()
     client = MlflowClient(MLFLOW_TRACKING_URI)
     try:

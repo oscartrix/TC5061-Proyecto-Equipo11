@@ -55,3 +55,13 @@ def test_onnx_keeps_registry_data(model_dir):
 def test_onnx_one_prediction_per_row(model_dir):
     path, _, x = model_dir
     assert load_onnx_model(path).predict(x.head(3)).shape == (3,)
+
+
+def test_inference_backend_onnx_uses_onnx_runtime(model_dir, monkeypatch):
+    from mi_bici.api.model import load_served_model
+
+    monkeypatch.setenv('MODEL_PATH', str(model_dir[0]))
+    monkeypatch.setenv('INFERENCE_BACKEND', 'onnx')
+    served = load_served_model()
+    assert served.backend == 'onnx'
+    assert served.predict(model_dir[2].head(2)).shape == (2,)

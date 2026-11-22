@@ -50,12 +50,14 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          pip install -r requirements.txt
+          pip install -r requirements.txt -r requirements-onnx.txt
           pip install -e . --no-deps
 
       # El Containerfile copia models/p1_champion; aquí no hay registry con el champion
       - name: Smoke model para la imagen de la API
-        run: python scripts/smoke_model.py --output models/p1_champion
+        run: |
+          python scripts/smoke_model.py --output models/p1_champion
+          python scripts/export_onnx.py --model-dir models/p1_champion
 
       - uses: docker/setup-buildx-action@v3
 
@@ -86,11 +88,19 @@ jobs:
       - name: Probar la API levantada con compose
         run: |
           curl -sf http://127.0.0.1:5001/health
-          curl -sf http://127.0.0.1:8000/model-info
+          curl -sf http://127.0.0.1:8000/model-info | grep '"backend":"onnx"'
           code=$(curl -s -o respuesta.json -w '%{http_code}' -X POST http://127.0.0.1:8000/p1/predict \
             -H 'Content-Type: application/json' -d '{"instances":[{"lag_1d":12.0,"lag_7d":11.0,"lag_14d":3.0,"lag_21d":4.0,"rolling_mean_7d":11.857143,"capacity":19,"day_of_week":2,"month":9,"is_weekend":0,"is_holiday":0,"zone":"ZPN"}]}')
           cat respuesta.json
           [ "$code" = 200 ]
+
+      # Mismo contenedor con el motor de sklearn
+      - name: Probar la API con sklearn
+        run: |
+          INFERENCE_BACKEND=sklearn docker compose up -d --no-build --wait --wait-timeout 120 api
+          curl -sf http://127.0.0.1:8000/model-info | grep '"backend":"sklearn"'
+          curl -sf -X POST http://127.0.0.1:8000/p1/predict -H 'Content-Type: application/json' \
+            -d '{"instances":[{"lag_1d":12.0,"lag_7d":11.0,"lag_14d":3.0,"lag_21d":4.0,"rolling_mean_7d":11.857143,"capacity":19,"day_of_week":2,"month":9,"is_weekend":0,"is_holiday":0,"zone":"ZPN"}]}'
 
       - name: Registros de compose
         if: failure()

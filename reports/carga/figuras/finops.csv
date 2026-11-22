@@ -1,0 +1,4 @@
+motor,usuarios_slo,peticiones_s,filas_s,p95_ms,cpu_pct,mem_mb,usd_por_millon_filas
+onnx-8-hilos,20,9.27,31.09,88.0,92.14,108.2,0.4014
+sklearn,50,24.19,83.24,150.0,57.82,233.3,0.1499
+onnx,400,189.48,616.3,43.0,77.7,133.4,0.0202

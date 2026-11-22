@@ -1,0 +1,17 @@
+escenario,motor,replica,replicas,usd_mes,usd_por_millon_filas
+Lote diario (470 estaciones),onnx,1.0 vCPU / 1.0 GB,1,32.8,2325.9
+Lote diario (470 estaciones),onnx,0.25 vCPU / 0.5 GB,1,9.01,639.01
+Lote diario (470 estaciones),sklearn,1.0 vCPU / 1.0 GB,1,32.8,2325.9
+Lote diario (470 estaciones),sklearn,0.25 vCPU / 0.5 GB,1,9.01,639.01
+Replaneación cada hora,onnx,1.0 vCPU / 1.0 GB,1,32.8,96.91
+Replaneación cada hora,onnx,0.25 vCPU / 0.5 GB,1,9.01,26.63
+Replaneación cada hora,sklearn,1.0 vCPU / 1.0 GB,1,32.8,96.91
+Replaneación cada hora,sklearn,0.25 vCPU / 0.5 GB,1,9.01,26.63
+App pública (1 M filas/día),onnx,1.0 vCPU / 1.0 GB,1,32.8,1.09
+App pública (1 M filas/día),onnx,0.25 vCPU / 0.5 GB,1,9.01,0.3
+App pública (1 M filas/día),sklearn,1.0 vCPU / 1.0 GB,1,32.8,1.09
+App pública (1 M filas/día),sklearn,0.25 vCPU / 0.5 GB,3,27.03,0.9
+Alto volumen (50 M filas/día),onnx,1.0 vCPU / 1.0 GB,5,163.98,0.11
+Alto volumen (50 M filas/día),onnx,0.25 vCPU / 0.5 GB,19,171.19,0.11
+Alto volumen (50 M filas/día),sklearn,1.0 vCPU / 1.0 GB,35,1147.83,0.77
+Alto volumen (50 M filas/día),sklearn,0.25 vCPU / 0.5 GB,140,1261.4,0.84

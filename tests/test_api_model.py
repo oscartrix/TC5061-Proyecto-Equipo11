@@ -213,8 +213,26 @@ def test_load_served_model_from_local_path(tmp_path, monkeypatch):
     mlflow.sklearn.save_model(reg, path, signature=infer_signature(x, reg.predict(x)))
     (path / 'registry.txt').write_text('mi-modelo\n3\nrun-abc\n')
     monkeypatch.setenv('MODEL_PATH', str(path))
+    monkeypatch.delenv('INFERENCE_BACKEND', raising=False)
 
     served = load_served_model()
 
     assert (served.name, served.version, served.run_id) == ('mi-modelo', '3', 'run-abc')
     assert len(served.predict(x)) == 3
+
+
+def test_onnx_backend_without_onnx_file_uses_sklearn(tmp_path, monkeypatch):
+    import mlflow.sklearn
+    from mlflow.models import infer_signature
+    from sklearn.linear_model import LinearRegression
+
+    from mi_bici.api.model import load_served_model
+
+    x = pd.DataFrame({'a': [1.0, 2.0, 3.0], 'b': [2.0, 1.0, 0.0]})
+    reg = LinearRegression().fit(x, [1.0, 2.0, 3.0])
+    path = tmp_path / 'modelo'
+    mlflow.sklearn.save_model(reg, path, signature=infer_signature(x, reg.predict(x)))
+    monkeypatch.setenv('MODEL_PATH', str(path))
+    monkeypatch.setenv('INFERENCE_BACKEND', 'onnx')
+
+    assert load_served_model().backend == 'sklearn'

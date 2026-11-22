@@ -14,6 +14,8 @@ STRING_COLUMNS = {'zone'}
 class OnnxServedModel:
     """Misma interfaz que ServedModel: name, version, run_id y predict."""
 
+    backend = 'onnx'
+
     def __init__(self, name: str, version: str, run_id: str | None, path: Path):
         self.name = name
         self.version = version

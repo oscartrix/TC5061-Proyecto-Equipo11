@@ -64,6 +64,7 @@ def model_info(request: Request) -> ModelInfoResponse:
         model_name=served_model.name,
         model_version=served_model.version,
         run_id=served_model.run_id,
+        backend=served_model.backend,
     )
 
 

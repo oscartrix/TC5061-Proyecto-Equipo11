@@ -77,6 +77,9 @@ class ModelInfoResponse(BaseModel):
     model_name: str = Field(min_length=1, description='Nombre en el Model Registry')
     model_version: str = Field(min_length=1, description='Versión en el Model Registry')
     run_id: str | None = Field(default=None, description='Corrida de MLflow que generó el modelo')
+    backend: Literal['sklearn', 'onnx'] = Field(
+        default='sklearn', description='Motor de inferencia: sklearn u ONNX Runtime'
+    )
 
 
 class PredictionResponse(BaseModel):

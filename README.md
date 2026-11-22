@@ -41,13 +41,18 @@ El detalle completo de la formulación se encuentra en [`references/ml-canvas.md
 
 ```text
 ├── LICENSE                  <- Licencia del proyecto
-├── Makefile                 <- Comandos de utilidad (make mlflow-server, make train-all, make test, make lint)
+├── Makefile                 <- Comandos de utilidad (make mlflow-server, make train-all, make up, make load-test)
+├── docker-compose.yml       <- MLflow, API, Redis y worker de RQ en la red mibici_network
+├── Dockerfile               <- Imagen del servidor de MLflow
+├── Containerfile            <- Imagen de la API con el champion de P1 (sklearn y ONNX)
+├── .github/workflows/       <- ci.yml (pruebas, imágenes y compose) y pipeline.yml (pipeline completo y GHCR)
 ├── MLproject                <- Definición de entry points reproducibles para MLflow Projects
 ├── python_env.yaml          <- Entorno de Python que usa MLproject
 ├── README.md                <- Documentación principal del proyecto
 ├── pyproject.toml           <- Metadatos del paquete mi_bici y declaración de dependencias
 ├── requirements.txt         <- Dependencias del pipeline con versiones fijas
 ├── requirements-dev.txt     <- Dependencias de desarrollo (Jupyter, pytest, ruff) con versiones fijas
+├── requirements-api.txt     <- Dependencias de la imagen de la API (incluye onnxruntime, redis y rq)
 ├── config/
 │   ├── sources.yaml         <- Catálogo declarativo de URLs de viajes (2024-01 a 2026-09) y estaciones
 │   └── data_manifest.json   <- Manifiesto versionado con hashes SHA-256 (hashlib) y conteos de filas
@@ -67,18 +72,22 @@ El detalle completo de la formulación se encuentra en [`references/ml-canvas.md
 ├── references/
 │   ├── ml-canvas.md         <- Machine Learning Canvas completo para P1, P2 y P3
 │   └── architecture/        <- Diagramas de arquitectura (Markdown/Mermaid, HTML interactivo y PNG)
+├── docs/                    <- Reportes PDF, monitoreo.md, finops.md, analisis_onnx.md y evidencia
 ├── reports/
 │   ├── propuesta_equipo11.md <- Documento integrador de la propuesta y resultados con APA 7
+│   ├── carga/               <- CSV de Locust y docker stats por motor, figuras y tablas de FinOps
 │   └── figures/             <- Gráficas generadas y registradas como artefactos en MLflow
-├── tests/
-│   ├── test_data.py         <- Pruebas unitarias de validación de esquemas y fechas
-│   └── test_train_cli.py    <- Pruebas de la CLI de hiperparámetros de train
+├── scripts/                 <- Exportar el champion y ONNX, Locust, docker stats, gráficas de carga y FinOps
+├── tests/                   <- Pruebas de pytest (datos, modelos, API, ONNX, cola de RQ, drift y A/B testing)
 └── mi_bici/                 <- Módulo principal de código fuente
     ├── __init__.py
     ├── config.py            <- Configuración centralizada (rutas, fechas, semilla=42, MLflow)
     ├── dataset.py           <- CLI de ingesta, escritura a Parquet y manifiesto SHA-256
     ├── features.py          <- Funciones documentadas de feature engineering para P1, P2 y P3
     ├── plots.py             <- Utilidades de visualización
+    ├── api/                 <- FastAPI: main.py, model.py (sklearn), onnx_model.py, jobs.py (RQ) y schemas.py
+    ├── monitoring/          <- Drift con Evidently, drift contra desempeño y A/B testing de P2
+    ├── validation/          <- Contratos de datos y validaciones de DeepChecks
     ├── data/
     │   ├── __init__.py
     │   ├── schemas.py       <- Contratos de columnas, variantes de headers y tipos
@@ -442,6 +451,7 @@ Con Docker:
 ```bash
 export MLFLOW_TRACKING_URI=http://127.0.0.1:5000
 python scripts/export_model.py --question p1 --output models/p1_champion
+python scripts/export_onnx.py --model-dir models/p1_champion
 docker build -f Containerfile -t mibici-api .
 docker run --rm -p 8000:8000 mibici-api
 ```
@@ -458,97 +468,119 @@ curl -X POST http://127.0.0.1:8000/p1/predict -H 'Content-Type: application/json
 ```
 
 ```json
-{"model_name":"mibici-equipo11-p1-demanda","model_version":"1","predictions":[10.182341634926482]}
+{"model_name":"mibici-equipo11-p1-demanda","model_version":"1","predictions":[10.118305206298828]}
 ```
+
+`/model-info` incluye el motor que responde (`"backend":"onnx"`).
 
 Variables del contenedor:
 
 | Variable | Valor por defecto | Uso |
 |---|---|---|
 | `MODEL_PATH` | `/app/models/p1_champion` | Carpeta del modelo dentro de la imagen |
+| `INFERENCE_BACKEND` | `onnx` | `onnx` usa `model.onnx` con ONNX Runtime; `sklearn` usa el modelo de MLflow. Sin `model.onnx`, la API usa sklearn |
+| `ORT_THREADS` | `1` | Hilos de ONNX Runtime; conviene igualarlo a los CPU asignados al contenedor |
+| `REDIS_URL` | sin definir | Activa `/p1/predict-async` y `/jobs/{job_id}`; sin ella responden 503 |
 | `MLFLOW_TRACKING_URI` | sin definir | Solo si se quita `MODEL_PATH`: la API carga `MODEL_NAME`@`MODEL_ALIAS` del registry (por ejemplo `http://host.docker.internal:5000`; en Podman, `host.containers.internal`) |
 
 Captura de la API respondiendo desde el contenedor: `docs/evidencia/api/06_swagger_contenedor.png`; el resto de las capturas y registros están en la misma carpeta, y el reporte en `docs/TC5061_Reporte_Despliegue_Equipo11.pdf`. Comparación con ONNX Runtime: `docs/analisis_onnx.md`.
 
-#### Pruebas de Carga y Rendimiento con Locust
+#### Inferencia con ONNX Runtime
 
-Se implementó un escenario de prueba de carga con **Locust** (`scripts/locustfile.py`) para evaluar la capacidad de respuesta y estabilidad del endpoint de predicción (`/p1/predict`) bajo concurrencia de usuarios simulados:
-
-- **Escenario simulado:**
-  - Usuarios concurrentes: 25 usuarios virtuales con tiempo de espera entre tareas de 0.5 a 2.0 s.
-  - Tasa de aparición (*spawn rate*): 5 usuarios/segundo.
-  - Tareas evaluadas: peticiones de inferencia individual (`POST /p1/predict` con 1 instancia) y en lote (`POST /p1/predict` en batch de 10 instancias), además de endpoints auxiliares (`GET /health` y `GET /model-info`).
-
-Para ejecutar la prueba y generar el reporte HTML con gráficas de desempeño:
-
-```bash
-# Ejecución automatizada con levantamiento de servidor local y reporte con gráficas:
-MODEL_PATH=models/p1_champion python scripts/run_locust_test.py --users 25 --spawn-rate 5 --run-time 20s
-
-# O bien, usando directamente Locust en modo headless:
-locust -f scripts/locustfile.py --headless -u 25 -r 5 -t 20s \
-    --host http://localhost:8000 \
-    --html reports/locust_report.html
-```
-
-##### Resultados y Métricas de Desempeño
-
-| Endpoint | Peticiones (# reqs) | Fallos (# fails) | Tasa de Error | Throughput (RPS) | Mediana Latencia (p50) | Latencia p95 | Latencia Máx |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| `POST /p1/predict (1 instancia)` | 199 | 0 | 0.00% | 10.05 req/s | 6 ms | 19 ms | 39 ms |
-| `POST /p1/predict (batch 10)` | 69 | 0 | 0.00% | 3.49 req/s | 6 ms | 10 ms | 21 ms |
-| `GET /health` | 78 | 0 | 0.00% | 3.94 req/s | 2 ms | 12 ms | 19 ms |
-| `GET /model-info` | 29 | 0 | 0.00% | 1.47 req/s | 2 ms | 15 ms | 17 ms |
-| **Total Agregado** | **375** | **0** | **0.00%** | **18.94 req/s** | **6 ms** | **16 ms** | **39 ms** |
-
-El reporte completo generado en [`reports/locust_report.html`](reports/locust_report.html) contiene gráficas interactivas de:
-1. **Peticiones por segundo (RPS) y fallos en el tiempo**.
-2. **Distribución de tiempos de respuesta y percentiles de latencia** (p50, p95, p99).
-3. **Número de usuarios concurrentes en el tiempo**.
-
-Estrategia de despliegue: inferencia en tiempo real. La demanda del día siguiente se consulta por estación y las filas ya vienen calculadas (rezagos y calendario), por lo que una respuesta síncrona por petición es suficiente; para recalcular todas las estaciones se envían hasta 500 filas por llamada. Se incrusta el modelo en la imagen para que la versión servida quede fija y la imagen funcione igual en cualquier máquina.
-
-#### Inferencia con ONNX Runtime (opcional)
+`export_onnx.py` guarda `model.onnx` junto al modelo y lo compara contra sklearn con los datos de prueba; si la diferencia media pasa de 0.25 viajes, termina con error. Con el champion actual la diferencia media es de 0.14 viajes, porque ONNX trabaja en float32. La imagen trae los dos modelos y usa ONNX por defecto.
 
 ```bash
 pip install -r requirements-onnx.txt
 python scripts/export_onnx.py --model-dir models/p1_champion
-python scripts/benchmark_inference.py
+python scripts/benchmark_inference.py          # solo el modelo, sin la API
 INFERENCE_BACKEND=onnx MODEL_PATH=models/p1_champion uvicorn mi_bici.api.main:app
 ```
 
-`export_onnx.py` guarda `model.onnx` junto al modelo y compara sus predicciones con las de sklearn. Sin `INFERENCE_BACKEND`, la API sigue usando sklearn. Con el HGB actual, ONNX trabaja en float32 y en algunas filas la predicción cambia; ver `week-8/analisis_onnx.md`.
+Dentro de un contenedor, ONNX Runtime ve todos los núcleos del host aunque el contenedor tenga 1 CPU. Por eso `onnx_model.py` fija 1 hilo y desactiva la espera activa (ver la prueba de carga). Comparación inicial con sklearn: [`docs/analisis_onnx.md`](docs/analisis_onnx.md).
 
 ### Orquestación con Docker Compose
 
-[`docker-compose.yml`](docker-compose.yml) levanta el servidor de MLflow y la API en la red `mibici_network`. La API arranca cuando el healthcheck de MLflow responde.
+[`docker-compose.yml`](docker-compose.yml) levanta cuatro servicios en la red `mibici_network`. Cada uno tiene healthcheck, y la API arranca hasta que MLflow y Redis responden.
 
-| Servicio | Imagen | Puerto | Datos |
+| Servicio | Imagen | Puerto | Función |
 |---|---|---|---|
-| `mlflow` | `Dockerfile` | `5001` → `5000` | Volúmenes `mibici_equipo11_db` y `mibici_equipo11_artifacts`; monta `data/`, `models/` y `reports/` |
-| `api` | `ghcr.io/oscartrix/mibici-api:latest` (o `Containerfile`) | `8000` | Modelo champion de P1 incluido en la imagen |
+| `mlflow` | `Dockerfile` | `5001` → `5000` | Tracking y Model Registry; volúmenes `mibici_equipo11_db` y `mibici_equipo11_artifacts` |
+| `api` | `ghcr.io/oscartrix/mibici-api:latest` (o `Containerfile`) | `8000` | Predicción en línea con el champion de P1 incluido en la imagen (ONNX por defecto) |
+| `redis` | `redis:7.4-alpine` | interno | Cola de predicciones por lote, sin persistencia y con 100 MB como máximo |
+| `worker` | la misma imagen de la API | interno | Worker de RQ (`SimpleWorker`) que procesa la cola `predicciones` y carga el modelo una sola vez |
 
-La imagen de la API se descarga de GHCR, donde el pipeline la publica con el champion de P1 en cada push a `main`, así que en un clon limpio basta un comando:
+La imagen de la API se descarga de GHCR, donde el pipeline la publica con el champion de P1 en cada push a `main`. En un clon limpio basta un comando:
 
 ```bash
 make up      # docker compose up -d
 make down    # docker compose down; los runs de MLflow se conservan en los volúmenes
 ```
 
-Si la imagen no se puede descargar, compose la construye con el `Containerfile`, que copia `models/p1_champion`. En ese caso, o para probar cambios locales en la API, el modelo se exporta antes desde el servidor de tracking local (`MLFLOW_TRACKING_URI`, puerto `5000`), que debe tener registrado el champion de P1 (Pasos 1 a 7); el MLflow del compose usa su propio volumen y arranca vacío:
+Si la imagen no se puede descargar, compose la construye con el `Containerfile`, que copia `models/p1_champion`. En ese caso, o para probar cambios locales en la API, el modelo se exporta antes desde el servidor de tracking local (`MLFLOW_TRACKING_URI`, puerto `5000`), que debe tener registrado el champion de P1 (Pasos 1 a 7). El MLflow del compose usa su propio volumen y arranca vacío.
 
 ```bash
 python scripts/export_model.py --question p1 --output models/p1_champion
+python scripts/export_onnx.py --model-dir models/p1_champion
 docker compose up -d --build
 ```
 
 Con Podman: `make up CONTAINER_ENGINE=podman`. MLflow queda en `http://127.0.0.1:5001` y la API en `http://127.0.0.1:8000/docs`.
 
-La API se limita a 1 CPU y 1 GB de memoria, los recursos de la instancia de referencia para las pruebas de carga. Se cambian con variables de entorno o en `.env`:
+Predicción por lote en segundo plano:
 
 ```bash
-API_CPUS=2 API_MEMORY=2g make up
+curl -X POST http://127.0.0.1:8000/p1/predict-async -H 'Content-Type: application/json' \
+  -d '{"instances":[{"lag_1d":12.0,"lag_7d":11.0,"lag_14d":3.0,"lag_21d":4.0,"rolling_mean_7d":11.857143,"capacity":19,"day_of_week":2,"month":9,"is_weekend":0,"is_holiday":0,"zone":"ZPN"}]}'
+# {"job_id":"1591803a-...","status":"queued","result":null}
+curl http://127.0.0.1:8000/jobs/1591803a-...
+# {"job_id":"1591803a-...","status":"finished","result":{"model_name":"...","model_version":"1","predictions":[10.118...]}}
 ```
+
+Variables (en el entorno o en `.env`, ver `.env.example`):
+
+| Variable | Por defecto | Uso |
+|---|---|---|
+| `INFERENCE_BACKEND` | `onnx` | Motor de la API y del worker (`onnx` o `sklearn`) |
+| `API_CPUS`, `API_MEMORY` | `1`, `1g` | Límites de la API; son los de la réplica de referencia para la prueba de carga y el FinOps |
+| `WORKER_CPUS`, `WORKER_MEMORY` | `0.5`, `512m` | Límites del worker |
+
+```bash
+INFERENCE_BACKEND=sklearn API_CPUS=2 API_MEMORY=2g make up
+```
+
+### Pruebas de carga y consumo de recursos
+
+El escenario de [`scripts/locustfile.py`](scripts/locustfile.py) simula usuarios que esperan entre 0.5 y 2 s entre peticiones. El 46 % de las peticiones predice una fila, el 15 % un lote de 10 filas, el 8 % encola un lote de 50 filas en Redis y el resto consulta `/health` y `/model-info`. Cada fila lleva rezagos, zona y día aleatorios. Los usuarios suben por escalones (20, 50, 100, 200, 300 y 400) de 60 s cada uno, para encontrar el punto en que la API se satura. Mientras corre Locust, `scripts/docker_stats.py` guarda el CPU y la memoria de los cuatro contenedores cada ~2 s.
+
+```bash
+make load-test INFERENCE_BACKEND=onnx      # compose up + Locust + docker stats -> reports/carga/onnx/
+make load-test INFERENCE_BACKEND=sklearn   # -> reports/carga/sklearn/
+make load-report                           # figuras y resumen por escalón -> reports/carga/figuras/
+
+# Prueba corta con usuarios fijos (la misma que corre el pipeline):
+python scripts/run_locust_test.py --no-autostart-server --users 10 --spawn-rate 5 --run-time 20s \
+  --output-dir reports/locust_ci --stats
+```
+
+Resultados con la API limitada a 1 CPU y 1 GB. No hubo errores en ninguna corrida:
+
+| Motor | Usuarios | Pred. req/s | Filas/s | p50 | p95 | CPU API | Memoria API |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| ONNX | 100 | 49 | 161 | 8 ms | 23 ms | 35 % | 124 MB |
+| ONNX | 400 | 189 | 616 | 9 ms | 43 ms | 78 % | 133 MB |
+| sklearn | 100 | 44 | 140 | 71 ms | 525 ms | 84 % | 242 MB |
+| sklearn | 400 | 60 | 195 | 2 750 ms | 3 300 ms | 102 % | 211 MB |
+
+![Desempeño por número de usuarios](reports/carga/figuras/desempeno_por_usuarios.png)
+![CPU y memoria de la API](reports/carga/figuras/recursos_api.png)
+
+- sklearn se satura cerca de 100 usuarios. Desde ahí el CPU está al 100 % y solo crece la fila de espera, por eso la latencia sube mientras las peticiones por segundo se quedan en ~60.
+- ONNX no se saturó con 400 usuarios: el límite fue el generador de carga. Con la misma réplica atiende al menos 3 veces más peticiones, con una latencia entre 9 y 77 veces menor y cerca de la mitad de la memoria.
+- La serie punteada (`onnx-8-hilos`) es la primera corrida con ONNX. ONNX Runtime creaba un hilo por cada núcleo del host y su espera activa agotaba la cuota de 1 CPU: 92 % de CPU con 20 usuarios y menos capacidad que sklearn. Se corrigió con 1 hilo y sin espera activa (`mi_bici/api/onnx_model.py`).
+- Redis y el worker usaron en promedio 3 % y 16 % de CPU. En la corrida de ONNX se encolaron 3 784 lotes de 50 filas sin errores.
+- El servidor de MLflow ocupa ~2 GB, el 87 % de la memoria del stack, sin participar en la inferencia (ver FinOps).
+
+Cada carpeta de `reports/carga/` tiene el reporte HTML de Locust (`locust.html`), los CSV de Locust y `docker_stats.csv`.
 
 ### Paso 8: Pruebas, validación de datos y seguridad
 
@@ -688,13 +720,42 @@ make ab-test                                   # champion contra retrain-jun sob
 ![Reporte de drift de Evidently](docs/evidencia/monitoreo/05_evidently_drift.png)
 ![A/B testing de P2](docs/evidencia/monitoreo/ab_test_metricas.png)
 
-### Integración continua
-El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta lo anterior sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks, entrenamiento de todos los modelos, dos búsquedas, registro, evaluación contra baselines e inferencia con los tres modelos `champion`. Después reentrena P2, genera el reporte de drift con Evidently, corre el A/B testing, construye la imagen de la API y la prueba con peticiones y con una prueba de carga de Locust. En cada push a `main` publica la imagen en GHCR (`ghcr.io/oscartrix/mibici-api`, etiquetas `latest` y el SHA del commit) para `linux/amd64` y `linux/arm64`. Los reportes de validación y evaluación se suben como artefactos incluso si falla el paso correspondiente; un error de calidad o drift impide continuar con el entrenamiento. Corre en cada push y PR hacia `main`, cada lunes y de forma manual.
+### CI/CD con GitHub Actions
 
 El workflow [`ci.yml`](.github/workflows/ci.yml) es la revisión rápida y corre en cada push a cualquier rama y en cada PR hacia `main`:
 
-- `tests`: pytest en una matriz de Linux y macOS, con caché de pip.
-- `images`: genera un smoke model de P1 con `scripts/smoke_model.py` (no hay registry con el champion en ese job), construye las imágenes de MLflow y de la API con caché de capas de GitHub Actions, levanta el sistema con `docker compose up --wait`, prueba `/health` de MLflow y `/model-info` y `/p1/predict` de la API, y lo detiene con `docker compose down -v`.
+- `tests`: pytest en una matriz de Linux y macOS, con caché de pip. Incluye las pruebas de la semana anterior: drift con Evidently, drift contra desempeño, reentrenamiento y A/B testing.
+- `images`: genera un smoke model de P1 y su `model.onnx`, construye las imágenes de MLflow y de la API con caché de capas de GitHub Actions y levanta el sistema con `docker compose up --wait`. Después prueba `/health` de MLflow, `/model-info` y `/p1/predict` con ONNX, encola un lote y espera a que el worker lo termine, repite la predicción con `INFERENCE_BACKEND=sklearn` y detiene todo con `docker compose down -v`.
+
+El workflow [`pipeline.yml`](.github/workflows/pipeline.yml) tiene dos jobs. `calidad` corre las pruebas, `make security` y una búsqueda de credenciales. Si pasa, `pipeline` clona el repositorio en un runner limpio y ejecuta sin pasos manuales: servidor de tracking, ingesta, características, validación de datos con DeepChecks, entrenamiento de todos los modelos, dos búsquedas, registro, evaluación contra baselines e inferencia con los tres modelos `champion`. Después reentrena P2, genera el reporte de drift con Evidently y corre el A/B testing. Al final exporta el champion de P1 y su `model.onnx` (revisando la paridad con sklearn), construye la imagen de la API, la prueba con peticiones válidas e inválidas y corre una prueba corta de Locust con `docker stats`. En cada push a `main` publica la imagen en GHCR (`ghcr.io/oscartrix/mibici-api`, etiquetas `latest` y el SHA del commit) para `linux/amd64` y `linux/arm64`. Los reportes de validación, evaluación, drift, A/B testing y carga se suben como artefactos.
+
+Cómo se ejecuta:
+
+| Disparador | `ci` | `pipeline` |
+|---|---|---|
+| Push a cualquier rama | Sí | Solo `main` |
+| Pull request hacia `main` | Sí | Sí |
+| Lunes 15:00 UTC | No | Sí |
+| Manual | `gh workflow run ci --ref <rama>` | `gh workflow run pipeline --ref <rama>` |
+
+```bash
+gh run list --limit 5          # estado de las últimas corridas
+gh run watch                   # seguir una corrida en curso
+gh run download <id> -n reportes-monitoreo
+```
+
+### FinOps
+
+El reporte de esta entrega (carga, recursos y FinOps) es [`docs/TC5061_Operacion_FinOps_Equipo11.pdf`](docs/TC5061_Operacion_FinOps_Equipo11.pdf). El análisis completo está en [`docs/finops.md`](docs/finops.md) y se recalcula con `python scripts/finops.py` a partir de la prueba de carga. Usa precios on-demand de us-east-1 (Fargate: 0.04048 USD por vCPU-hora y 0.004445 USD por GB-hora). Resumen:
+
+| | ONNX | sklearn |
+|---|---:|---:|
+| Filas/s por réplica de 1 vCPU y 1 GB (p95 ≤ 300 ms) | ≥ 616 | 83 |
+| USD por millón de filas con la réplica al 100 % | 0.020 | 0.150 |
+| Réplicas y USD/mes con 50 M filas/día | 5 · 164 | 35 · 1 148 |
+| Réplicas y USD/mes con 1 M filas/día | 1 · 32.80 | 1 · 32.80 |
+
+Con la demanda actual (470 estaciones al día), el costo lo fija el tiempo que la réplica está encendida, no el motor. Las optimizaciones con más efecto son ajustar el tamaño de la réplica (0.25 vCPU: 9.01 USD/mes), correr el lote diario como tarea programada y sacar MLflow del despliegue de inferencia (de una t3.medium a una t4g.small: −60 %).
 
 ---
 

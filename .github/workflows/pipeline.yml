@@ -207,7 +207,7 @@ jobs:
       - name: Prueba de carga con Locust
         run: |
           python scripts/run_locust_test.py --no-autostart-server --users 10 --spawn-rate 5 \
-            --run-time 20s --report-path reports/locust_ci.html
+            --run-time 20s --output-dir reports/locust_ci --stats
 
       # Solo en push a main: la imagen lleva el champion que se acaba de probar
       - name: Iniciar sesión en GHCR
@@ -249,4 +249,4 @@ jobs:
           name: respuesta-api
           path: |
             respuesta.json
-            reports/locust_ci.html
+            reports/locust_ci

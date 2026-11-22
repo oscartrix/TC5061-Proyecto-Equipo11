@@ -46,6 +46,7 @@ services:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - MODEL_NAME=mibici-equipo11-p1-demanda
       - MODEL_ALIAS=champion
+      - REDIS_URL=redis://redis:6379
     # Recursos de la instancia de referencia; se cambian con API_CPUS y API_MEMORY
     deploy:
       resources:
@@ -55,12 +56,64 @@ services:
     depends_on:
       mlflow:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request as u; u.urlopen('http://127.0.0.1:8000/health')\" || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 20s
+    networks:
+      - mibici-net
+
+  # Cola de predicciones por lote (POST /p1/predict-async)
+  redis:
+    image: redis:7.4-alpine
+    container_name: mibici-redis
+    restart: unless-stopped
+    # Sin persistencia: los resultados duran una hora y se pueden volver a pedir
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "100mb"]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - mibici-net
+
+  # Worker de RQ: misma imagen de la API, procesa los lotes encolados
+  worker:
+    image: ghcr.io/oscartrix/mibici-api:latest
+    container_name: mibici-worker
+    restart: unless-stopped
+    # SimpleWorker no crea un proceso por trabajo y carga el modelo una sola vez
+    command: ["rq", "worker", "predicciones", "--url", "redis://redis:6379", "--worker-class", "rq.worker.SimpleWorker"]
+    environment:
+      - MODEL_PATH=/app/models/p1_champion
+      - INFERENCE_BACKEND=${INFERENCE_BACKEND:-onnx}
+    deploy:
+      resources:
+        limits:
+          cpus: "${WORKER_CPUS:-0.5}"
+          memory: ${WORKER_MEMORY:-512m}
+    # El healthcheck de la imagen revisa el puerto 8000; el worker se revisa en Redis
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"from redis import Redis; from rq import Worker; import sys; sys.exit(0 if Worker.all(connection=Redis.from_url('redis://redis:6379')) else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
     networks:
       - mibici-net
 

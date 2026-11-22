@@ -3,15 +3,17 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-import numpy as np
-import pandas as pd
+from rq.exceptions import NoSuchJobError
+from rq.job import Job
 
-from mi_bici.api.model import ServedModel, load_served_model
+from mi_bici.api.jobs import RESULT_TTL, get_queue, predict_batch
+from mi_bici.api.model import ServedModel, load_served_model, predict_rows
 from mi_bici.api.schemas import (
     HealthResponse,
+    JobResponse,
     ModelInfoResponse,
     PredictionRequest,
     PredictionResponse,
@@ -22,6 +24,7 @@ from mi_bici.api.schemas import (
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Si el modelo no carga, el servicio no arranca.
     app.state.served_model = load_served_model()
+    app.state.queue = get_queue()
     yield
 
 
@@ -71,11 +74,36 @@ def model_info(request: Request) -> ModelInfoResponse:
 @app.post('/p1/predict', summary='Predecir viajes por estación y día')
 def predict(body: PredictionRequest, request: Request) -> PredictionResponse:
     served_model = get_served_model(request)
-    features = pd.DataFrame([row.model_dump() for row in body.instances])
-    # No puede haber viajes negativos; el entrenamiento los limita igual al medir el error.
-    predictions = np.clip(served_model.predict(features), 0.0, None)
+    rows = [row.model_dump() for row in body.instances]
     return PredictionResponse(
         model_name=served_model.name,
         model_version=served_model.version,
-        predictions=predictions.tolist(),
+        predictions=predict_rows(served_model, rows),
     )
+
+
+def get_queue_or_503(request: Request):
+    queue = request.app.state.queue
+    if queue is None:
+        raise HTTPException(status_code=503, detail='La cola de predicciones no está configurada')
+    return queue
+
+
+@app.post('/p1/predict-async', status_code=202, summary='Encolar un lote de predicciones')
+def predict_async(body: PredictionRequest, request: Request) -> JobResponse:
+    queue = get_queue_or_503(request)
+    rows = [row.model_dump() for row in body.instances]
+    job = queue.enqueue(predict_batch, rows, result_ttl=RESULT_TTL)
+    return JobResponse(job_id=job.id, status=job.get_status())
+
+
+@app.get('/jobs/{job_id}', summary='Consultar una predicción encolada')
+def job_status(job_id: str, request: Request) -> JobResponse:
+    queue = get_queue_or_503(request)
+    try:
+        job = Job.fetch(job_id, connection=queue.connection)
+    except NoSuchJobError:
+        raise HTTPException(status_code=404, detail='No existe el trabajo') from None
+    status = job.get_status()
+    result = job.return_value() if status == 'finished' else None
+    return JobResponse(job_id=job.id, status=status, result=result)

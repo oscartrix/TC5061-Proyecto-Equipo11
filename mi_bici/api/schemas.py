@@ -94,3 +94,11 @@ class PredictionResponse(BaseModel):
         max_length=MAX_INSTANCES,
         description='Viajes esperados por fila, en el orden de la petición',
     )
+
+
+class JobResponse(BaseModel):
+    """Estado de una predicción encolada."""
+
+    job_id: str
+    status: str = Field(description='queued, started, finished o failed')
+    result: PredictionResponse | None = None

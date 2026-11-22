@@ -5,7 +5,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    MODEL_PATH=/app/models/p1_champion
+    MODEL_PATH=/app/models/p1_champion \
+    INFERENCE_BACKEND=onnx
 
 WORKDIR /app
 
@@ -14,6 +15,7 @@ RUN pip install -r requirements-api.txt
 
 COPY mi_bici/ mi_bici/
 # Modelo champion descargado antes con scripts/export_model.py
+# y model.onnx generado con scripts/export_onnx.py
 COPY models/p1_champion/ models/p1_champion/
 
 RUN useradd --create-home appuser && chown -R appuser /app

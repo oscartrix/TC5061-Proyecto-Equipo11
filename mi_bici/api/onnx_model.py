@@ -1,5 +1,6 @@
 """Inferencia del modelo de P1 con ONNX Runtime."""
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -20,7 +21,13 @@ class OnnxServedModel:
         self.name = name
         self.version = version
         self.run_id = run_id
-        self.session = ort.InferenceSession(str(path), providers=['CPUExecutionProvider'])
+        # En el contenedor ONNX Runtime ve todos los núcleos del host aunque tenga 1 CPU;
+        # con un hilo por núcleo en espera activa se gasta la cuota de CPU sin predecir
+        options = ort.SessionOptions()
+        options.intra_op_num_threads = int(os.getenv('ORT_THREADS', '1'))
+        options.inter_op_num_threads = 1
+        options.add_session_config_entry('session.intra_op.allow_spinning', '0')
+        self.session = ort.InferenceSession(str(path), options, providers=['CPUExecutionProvider'])
         self.columns = [item.name for item in self.session.get_inputs()]
 
     def predict(self, features: pd.DataFrame) -> np.ndarray:

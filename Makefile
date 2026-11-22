@@ -178,6 +178,24 @@ locust-test:
 	$(PYTHON_INTERPRETER) scripts/run_locust_test.py --users 20 --spawn-rate 5 --run-time 30s --report-path reports/locust_report.html
 
 
+INFERENCE_BACKEND ?= onnx
+LOAD_STEPS ?= 20,50,100,200,300,400
+STEP_SECONDS ?= 60
+
+## Carga por escalones contra docker compose con docker stats (INFERENCE_BACKEND=onnx|sklearn)
+.PHONY: load-test
+load-test:
+	INFERENCE_BACKEND=$(INFERENCE_BACKEND) $(CONTAINER_ENGINE) compose up -d --wait
+	$(PYTHON_INTERPRETER) scripts/run_locust_test.py --no-autostart-server --steps $(LOAD_STEPS) \
+		--step-seconds $(STEP_SECONDS) --output-dir reports/carga/$(INFERENCE_BACKEND) --stats --async-tasks
+
+
+## Gráficas y resumen por escalón de las corridas de onnx y sklearn
+.PHONY: load-report
+load-report:
+	$(PYTHON_INTERPRETER) scripts/plot_load_test.py --runs reports/carga/onnx --runs reports/carga/sklearn
+
+
 #################################################################################
 # Self Documenting Commands                                                     #
 #################################################################################

@@ -2,10 +2,15 @@
 
 Uso:
     python scripts/run_locust_test.py --users 20 --spawn-rate 5 --run-time 15s
+
+    # Escalones de usuarios contra docker compose, con CSV y docker stats:
+    python scripts/run_locust_test.py --no-autostart-server --steps 20,50,100,150,200 \
+        --output-dir reports/carga/onnx --stats
 """
 
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import time
@@ -42,7 +47,18 @@ def run(
     autostart_server: Annotated[
         bool, typer.Option(help='Iniciar automáticamente un servidor local de FastAPI si no está corriendo')
     ] = True,
+    steps: Annotated[
+        str | None, typer.Option(help='Usuarios por escalón, ej: 20,50,100 (ignora --users)')
+    ] = None,
+    step_seconds: Annotated[int, typer.Option(help='Duración de cada escalón')] = 60,
+    output_dir: Annotated[
+        Path | None, typer.Option(help='Carpeta para el HTML, los CSV de Locust y docker stats')
+    ] = None,
+    stats: Annotated[bool, typer.Option(help='Guardar docker stats durante la prueba')] = False,
+    async_tasks: Annotated[bool, typer.Option(help='Incluir /p1/predict-async (requiere Redis)')] = False,
 ):
+    if output_dir:
+        report_path = output_dir / 'locust.html'
     report_path.parent.mkdir(parents=True, exist_ok=True)
     server_process = None
 
@@ -76,6 +92,9 @@ def run(
         typer.echo(
             f'Ejecutando Locust: {users} usuarios, spawn-rate={spawn_rate}, duración={run_time}...'
         )
+        if steps:
+            # La forma de carga termina sola; -t solo es el límite
+            run_time = f'{len(steps.split(",")) * step_seconds + 5}s'
         locust_cmd = [
             sys.executable,
             '-m',
@@ -94,7 +113,26 @@ def run(
             '--html',
             str(report_path),
         ]
-        res = subprocess.run(locust_cmd, env=dict(os.environ), check=False)
+        env = dict(os.environ)
+        if steps:
+            env.update(LOCUST_STEPS=steps, LOCUST_STEP_SECONDS=str(step_seconds))
+        if async_tasks:
+            env['LOCUST_ASYNC'] = '1'
+        if output_dir:
+            # locust_stats.csv, locust_stats_history.csv y locust_failures.csv
+            locust_cmd += ['--csv', str(output_dir / 'locust'), '--csv-full-history']
+        stats_process = None
+        if stats:
+            stats_csv = report_path.parent / 'docker_stats.csv'
+            stats_process = subprocess.Popen(
+                [sys.executable, 'scripts/docker_stats.py', '--output', str(stats_csv)]
+            )
+        try:
+            res = subprocess.run(locust_cmd, env=env, check=False)
+        finally:
+            if stats_process:
+                stats_process.send_signal(signal.SIGINT)
+                stats_process.wait()
         if res.returncode == 0:
             typer.echo(f'\nReporte HTML con gráficas generado exitosamente en: {report_path}')
         else:

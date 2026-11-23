@@ -13,6 +13,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
+from rq.exceptions import NoSuchJobError
 
 from mi_bici.api import main
 from mi_bici.api.model import ModelLoadError, ServedModel
@@ -214,3 +215,28 @@ def test_openapi_publishes_example_and_routes(client):
     assert {'/health', '/model-info', PREDICT_URL} <= set(schema['paths'])
     example = schema['components']['schemas']['PredictionRequest']['examples'][0]
     assert example == {'instances': [EXAMPLE_FEATURES]}
+
+@pytest.mark.parametrize("invalid_index", [0, 1, 2])
+def test_predict_rejects_invalid_row_in_batch(client, invalid_index):
+    """Verifica que se identifique una fila inválida dentro de un lote."""
+
+    rows = [features() for _ in range(3)]
+
+    # Introducimos un mes inválido en una de las observaciones.
+    rows[invalid_index]["month"] = 13
+
+    response = client.post(
+        PREDICT_URL,
+        json={"instances": rows}
+    )
+
+    assert response.status_code == 422
+
+    errors = response.json()["detail"]
+
+    assert any(
+        error["loc"] == [
+            "body", "instances", invalid_index, "month"
+        ]
+        for error in errors
+    )
